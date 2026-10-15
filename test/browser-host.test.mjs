@@ -42,13 +42,16 @@ test('handshake requires exact opener, trusted origin and nonce; credentials use
   await assert.rejects(f.scope.__LinkMiniAppHost.request({ version: 1, method: 'init', request_id: randomUUID() }), /ACCESS_REVOKED/);
   assert.ok(f.events.some(e => e.type === 'linkminiapp:closed'));
 });
-test('document expiry rejects pending calls and closes its host adapter', async t => {
+test('an expired launch token does not close the document channel; the host reissues it', async t => {
   const f = scopeFixture(); installBrowserHost(f.scope, { hostOrigin: 'http://localhost:3008' }); t.after(() => f.emit('pagehide'));
   const c = new MessageChannel(); t.after(() => c.port2.close());
   f.emit('message', { source: f.scope.opener, origin: 'http://localhost:3008', data: { type: 'link-miniapp:connected', version: 1, nonce: f.sent[0][0].nonce }, ports: [c.port1] });
-  c.port2.postMessage({ type: 'link-miniapp:lease', expires_at: new Date(Date.now() - 1).toISOString() });
+  let launch = 0;
+  c.port2.on('message', packet => c.port2.postMessage({ version: 1, request_id: packet.request_id, result: { launch_id: `launch-${++launch}`, ready: { expires_at: new Date(Date.now() + (launch === 1 ? 1 : 60_000)).toISOString() } } }));
+  assert.equal((await f.scope.__LinkMiniAppHost.request({ version: 1, method: 'init', request_id: randomUUID() })).result.launch_id, 'launch-1');
   await new Promise(resolve => setTimeout(resolve, 10));
-  await assert.rejects(f.scope.__LinkMiniAppHost.request({ version: 1, method: 'init', request_id: randomUUID() }), /ACCESS_REVOKED/);
+  assert.equal((await f.scope.__LinkMiniAppHost.request({ version: 1, method: 'init', request_id: randomUUID() })).result.launch_id, 'launch-2');
+  assert.ok(!f.events.some(e => e.type === 'linkminiapp:closed'));
 });
 test('adapter revocation rejects an in-flight SDK UserInfo response and future calls', async t => {
   const f = scopeFixture();

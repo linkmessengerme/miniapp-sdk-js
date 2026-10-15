@@ -118,8 +118,9 @@ const context = await LinkMiniApp.init();
 
 Адаптер нужен для Mini App, открытого стендом в отдельном окне. Он не заменяет
 существующий native bridge. Проверяет точные origin, opener и nonce; scoped
-credentials передаются по привязанному к документу MessagePort. На `pagehide`,
-отзыв или истечение lease адаптер закрывается и отправляет `linkminiapp:closed`.
+credentials передаются по привязанному к документу MessagePort. На `pagehide`
+или отзыв адаптер закрывается и отправляет `linkminiapp:closed`. Истечение
+токена канал не закрывает: на следующий `init` host выдаёт новый запуск.
 Обработайте это событие, чтобы убрать экран авторизованного приложения.
 
 Для Next.js переменная `NEXT_PUBLIC_LINK_WEB_HOST_ORIGIN` встраивается **при

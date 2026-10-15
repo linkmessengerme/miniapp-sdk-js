@@ -143,7 +143,7 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
       if (closed) return Promise.reject(new MiniAppError("ACCESS_REVOKED"));
       if (pendingUserInfo) return pendingUserInfo;
       pendingUserInfo = (async () => {
-        // Ask the host for the current token each time, including after renewal.
+        // Ask the host for the current token each time; it may reissue it as a new launch.
         const context = await sdk.init();
         const ticket = generation, origin = scope.location.origin;
         if (!/^ma_[A-Za-z0-9_-]{43}$/.test(context.accessToken ?? "")) throw new MiniAppError("AUTHORIZATION_REQUIRED");

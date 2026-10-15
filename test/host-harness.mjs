@@ -1,5 +1,6 @@
 // Test adapter, never imported by the production SDK. A real host performs
-// create/consent/authorize before loading the document and renews every 30s.
+// create/consent/authorize before loading the document and creates a new
+// launch when the SDK asks for a token after the current one expires.
 export function hostHarness(launch, origin = "https://mini.example.com") {
   let current = structuredClone(launch);
   let closed = false;
