@@ -43,7 +43,7 @@ test("getUserInfo initializes itself, uses only the bearer, returns fresh typed 
   assert.deepEqual(await f.sdk.getUserInfo(), { sub: "pairwise" });
 });
 
-test("renewed host tokens are used and ungranted fields are never exposed", async () => {
+test("reissued host tokens are used and ungranted fields are never exposed", async () => {
   const f = fixture(); await f.sdk.getUserInfo();
   f.launch.ready.access_token = `ma_${"b".repeat(43)}`;
   f.launch.ready.scopes = ["profile"]; f.host.replace(f.launch);
@@ -54,6 +54,14 @@ test("renewed host tokens are used and ungranted fields are never exposed", asyn
   delete f.launch.ready.access_token; f.host.replace(f.launch);
   await assert.rejects(f.sdk.getUserInfo(), /AUTHORIZATION_REQUIRED/);
   assert.equal(f.requests.length, 3);
+});
+
+test("a token reissued as a new launch of the same app is used for the next request", async () => {
+  const f = fixture(); await f.sdk.getUserInfo();
+  f.launch.launch_id = "relaunch"; f.launch.ready.access_token = `ma_${"c".repeat(43)}`; f.host.replace(f.launch);
+  assert.deepEqual((await f.sdk.getUserInfo()).sub, "pairwise");
+  assert.equal(f.requests[1][1].headers.Authorization, `Bearer ${f.launch.ready.access_token}`);
+  assert.equal((await f.sdk.init()).launchId, "relaunch");
 });
 
 test("regional API is explicitly configured; unsafe API origins fail before sending a token", async () => {

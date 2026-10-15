@@ -6,23 +6,18 @@ export function installBrowserHost(scope = globalThis, { hostOrigin } = {}) {
   if (origin.origin !== hostOrigin || origin.username || origin.password ||
       !(origin.protocol === 'https:' || (origin.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname)))) throw Error('INVALID_HOST_ORIGIN');
   const opener = scope.opener, nonce = scope.crypto.randomUUID(), requests = new Map();
-  let port, closed = false, leaseTimer, handshakeTimer;
+  let port, closed = false, handshakeTimer;
   let resolveConnection, rejectConnection;
   const connection = new Promise((resolve, reject) => { resolveConnection = resolve; rejectConnection = reject; });
   connection.catch(() => {});
   function stop() {
     if (closed) return;
-    closed = true; clearTimeout(handshakeTimer); clearTimeout(leaseTimer);
+    closed = true; clearTimeout(handshakeTimer);
     scope.removeEventListener('message', connect); port?.close();
     rejectConnection(Error('ACCESS_REVOKED'));
     for (const { reject, timer } of requests.values()) { clearTimeout(timer); reject(Error('ACCESS_REVOKED')); }
     requests.clear();
     scope.dispatchEvent(new scope.CustomEvent('linkminiapp:closed'));
-  }
-  function lease(value) {
-    const until = Date.parse(value), left = until - Date.now();
-    if (!Number.isFinite(until) || left <= 0 || left > 65_000) { stop(); return; }
-    clearTimeout(leaseTimer); leaseTimer = setTimeout(stop, left);
   }
   function connect(event) {
     if (closed || port || event.source !== opener || event.origin !== hostOrigin || event.data?.type !== 'link-miniapp:connected' ||
@@ -32,11 +27,9 @@ export function installBrowserHost(scope = globalThis, { hostOrigin } = {}) {
     port.onmessage = ({ data }) => {
       if (closed) return;
       if (data?.type === 'link-miniapp:revoked') { stop(); return; }
-      if (data?.type === 'link-miniapp:lease') { lease(data.expires_at); return; }
       const pending = requests.get(data?.request_id);
       if (!pending || data.version !== 1) return;
       requests.delete(data.request_id); clearTimeout(pending.timer);
-      if (data.result?.ready) lease(data.result.ready.expires_at);
       if (closed) pending.reject(Error('ACCESS_REVOKED')); else pending.resolve(data);
     };
     port.onmessageerror = stop; port.start(); resolveConnection();

@@ -2,6 +2,10 @@
 
 ## 0.1.0 — release candidate
 
+- Hosts no longer extend launches with `renew`: an expiring token is reissued as
+  a new launch of the same app, so `launch_id` may change during a visit. The
+  browser adapter no longer closes on token expiry (`link-miniapp:lease` removed).
+
 - `init()` and `close()` for the Link Mini Apps host bridge v1.
 - `getUserInfo()` uses the current scoped Mini App access token, validates the
   subject and exposes only fields allowed by the granted scopes.

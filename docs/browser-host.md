@@ -66,9 +66,9 @@ handshake, и `false`, если уже есть bridge, нет opener или э�
    `link-miniapp:connected` с тем же nonce и одним перенесённым MessagePort.
 3. По порту проходят только `init`/`close` в формате [bridge v1](host-bridge.md).
    Широковещательные window messages не содержат токенов или профиля.
-4. Host каждые 30 секунд обновляет запуск и передаёт
-   `{ type: 'link-miniapp:lease', expires_at: '…' }`. Lease не длиннее 65 секунд.
-5. `{ type: 'link-miniapp:revoked' }`, истечение lease, `pagehide` и возврат из
-   bfcache прекращают канал. Новый документ требует нового handshake.
+4. Запуск не продлевается. Если на `init` токен истекает, host создаёт новый
+   запуск того же приложения и отвечает им; `launch_id` меняется, канал остаётся.
+5. `{ type: 'link-miniapp:revoked' }`, `pagehide` и возврат из bfcache прекращают
+   канал. Новый документ требует нового handshake.
 
 Нативные клиенты требуют отдельных bridge и E2E.
