@@ -9,8 +9,8 @@ Candidate: `@link-apps/miniapp@0.1.0`. Checked on 2026-10-22.
 | Tarball installation and both ESM exports | Passed; 8 package files |
 | Chrome 153, actual cross-origin browser fetch with synthetic fixtures | 9 checks passed |
 | Chrome 153, after host validation and error handling changes | 6 checks passed |
-| Authenticated production-browser UserInfo | Pending |
-| GitHub Actions for the current main revision | Did not start because of account billing/spending limits |
+| Authenticated production-browser UserInfo | Pending; deferred |
+| GitHub Actions | Disabled; release checks run locally |
 | npm publication | Not performed |
 
 The 23 tests cover the SDK, browser adapter, server verifier, scope filtering,
@@ -28,11 +28,12 @@ actual cross-origin UserInfo, malformed JSON, sanitized host exceptions, invalid
 identity/profile types, typed revocation, and recovery with a valid new launch.
 The browser sent real OPTIONS and GET requests with a bearer and no cookies.
 
-An earlier public production JWKS check failed in Chrome. HTTP probes showed two
-`Access-Control-Allow-Origin` headers on the response. Proxy configuration must
-be corrected before repeating production-browser verification with a fresh
-launch and a registered origin. A successful Node request or local fixture is
+An earlier public production JWKS check failed in Chrome because the response
+contained two `Access-Control-Allow-Origin` headers. Follow-up HTTP probes on
+2026-10-22 returned JWKS `200` with one Allow-Origin header and UserInfo preflight
+`204`. Authenticated production-browser verification with a fresh launch and a
+registered origin remains pending. A successful HTTP probe or local fixture is
 not proof of successful production-browser UserInfo.
 
-The candidate is not published. CI and production-browser results must be
-confirmed before publication; see the [release procedure](releasing.md).
+The candidate is not published. Local checks and production-browser results
+must be confirmed before publication; see the [release procedure](releasing.md).

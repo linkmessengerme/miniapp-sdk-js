@@ -1,7 +1,8 @@
 # Release procedure
 
-The release candidate is `@link-apps/miniapp@0.1.0`. npm publication is manual;
-CI verifies changes and creates candidate archives. See [verification status](verification.md).
+The release candidate is `@link-apps/miniapp@0.1.0`. npm publication is manual.
+Run checks and create candidate archives locally. GitHub Actions is currently
+disabled. See [verification status](verification.md).
 
 ## Verify the candidate
 
@@ -15,6 +16,7 @@ npm pack --pack-destination dist
 The checks cover SDK and adapter behavior, token verification, TypeScript, the
 exact archive contents, and installation in an isolated consumer project.
 Runtime files are JavaScript and do not require transpilation.
+`prepublishOnly` automatically runs `npm run check` before publication.
 
 Before release, review source, metadata, documentation, examples, and artifacts.
 Use `Link Messenger <dev@linkmessenger.me>` for repository-local commit identity.
@@ -39,7 +41,7 @@ phone numbers, subjects, ID tokens, or access tokens.
 
 ## Publish
 
-1. Confirm a green CI run for the release revision and completed browser checks.
+1. Confirm successful local checks for the release revision and completed browser checks.
 2. Review the public source snapshot and make the documentation available.
 3. Set the release date in the changelog and update unpublished-package notices.
 4. Check `npm whoami` and publishing rights for `@link-apps`. Use 2FA or trusted

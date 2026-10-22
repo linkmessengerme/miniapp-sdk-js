@@ -24,7 +24,8 @@ npm install /absolute/path/link-apps-miniapp-0.1.0.tgz
 After publication, use `npm install @link-apps/miniapp`.
 The runtime requires a modern browser or WebView with `fetch`, Web Crypto,
 ReadableStream, and AbortController. The optional browser adapter also requires
-MessageChannel. SDK development requires Node.js 20+; CI targets Node.js 22 and 24.
+MessageChannel. SDK development requires Node.js 20+. Run `npm run check` locally
+before publishing; `prepublishOnly` runs the same checks automatically.
 
 ## Launch and user information
 
