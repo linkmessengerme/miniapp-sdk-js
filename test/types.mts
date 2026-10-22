@@ -6,8 +6,8 @@ async function consume() {
   const info: MiniAppUserInfo = await LinkMiniApp.getUserInfo();
   const phone: string | undefined = info.phoneNumber;
   const verified: boolean | undefined = info.phoneNumberVerified;
-  const regional = createSDK(window, { apiBaseUrl: "https://api-sdk-fr.linkmessenger.me" });
-  await regional.getUserInfo();
+  const customAPI = createSDK(window, { apiBaseUrl: "https://api.example.com" });
+  await customAPI.getUserInfo();
   await window.LinkMiniApp.getUserInfo();
   // @ts-expect-error Scopes belong to consent/configuration, not UserInfo.
   await LinkMiniApp.getUserInfo({ scopes: ["phone"] });

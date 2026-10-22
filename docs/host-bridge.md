@@ -1,18 +1,24 @@
 # Host bridge v1
 
-Host Link выполняет авторизацию и consent до открытия Mini App, создаёт запуск
-и устанавливает в разрешённом основном документе:
+The Link host authenticates the user and obtains consent before opening a Mini
+App. It creates an authorized launch and installs this adapter in the permitted
+main document:
 
 ```ts
 window.__LinkMiniAppHost.request(packet): Promise<ResponsePacket>
 ```
 
-Запрос SDK: `{ version: 1, request_id: '<uuid>', method: 'init' }` или `close`.
-Ответ: `{ version: 1, request_id: '<тот же uuid>', result: launchResponse }`.
-Ошибка: `{ version: 1, request_id: '<тот же uuid>', error: { code: 'ACCESS_REVOKED' } }`.
-`close` возвращает пустой `result`. Допускается JSON-строка ответа до 64 KiB.
+SDK requests contain `{ version: 1, request_id: '<uuid>', method: 'init' }` or
+`method: 'close'`. Responses contain the same version and request ID, and either
+`result` or `error: { code: 'ACCESS_REVOKED' }`. `close` returns an empty result.
+A JSON-string response is supported up to 64 KiB.
 
-`init` возвращает актуальный LaunchResponse в snake_case ProtoJSON:
+Error codes must match `[A-Z][A-Z0-9_]{0,63}`. Error packets must not also
+contain a result. Malformed packets, invalid JSON, and incorrectly typed READY
+fields fail with `INVALID_HOST_RESPONSE`. Unexpected adapter exceptions become
+`HOST_ERROR`; their messages and causes are not exposed to the application.
+
+`init` returns the current LaunchResponse using snake_case ProtoJSON:
 
 ```json
 {
@@ -26,38 +32,38 @@ window.__LinkMiniAppHost.request(packet): Promise<ResponsePacket>
     "sub": "<pairwise-subject>",
     "scopes": ["profile"],
     "access_token": "<scoped opaque ma_ token>",
-    "profile": { "name": "Алиса", "username": "alice", "avatar_url": "" },
+    "profile": { "name": "Alice", "username": "alice", "avatar_url": "" },
     "web": {
-      "url": "https://mini.example/",
-      "allowed_origins": ["https://mini.example"],
+      "url": "https://miniapp.example.com/",
+      "allowed_origins": ["https://miniapp.example.com"],
       "id_token": "<signed Mini Apps JWT>"
     }
   }
 }
 ```
 
-`environment` — `ENVIRONMENT_TEST` или `ENVIRONMENT_LIVE`; в JWT это `test`/`live`.
-Старые host могут не передавать scopes/access_token: SDK предполагает только
-`profile`, а `getUserInfo()` требует access_token нового контракта.
+The environment is `ENVIRONMENT_TEST` or `ENVIRONMENT_LIVE`; JWT claims use
+`test` or `live`. Older hosts may omit scopes and the access token: the SDK
+assumes `profile` only, and `getUserInfo()` requires the newer access-token field.
 
-## Обязанности host
+## Host responsibilities
 
-- Привязать bridge к фактическому origin, основному документу, WebView и запуску.
-  Проверки выполняются host, а не только JavaScript-кодом страницы.
-- Проверять redirects и навигацию. Не выдавать данные iframe; закрывать bridge
-  при внешнем переходе, отзыве или смене конфигурации.
-- Live — только HTTPS. В Test разрешён HTTP loopback с точным origin и портом
-  из `allowed_origins`. Локальный адрес сам по себе не заменяет авторизацию.
-- Не продлевать запуск: READY и его токены живут 60 секунд. На `init`, если до
-  `expires_at` осталось больше 15 секунд, вернуть текущий READY; иначе тихо создать
-  новый запуск (`POST /launches` с новым `operation_id`). При сохранённом согласии
-  это сразу READY без экрана; при `CONSENT_REQUIRED` показать согласие; любой
-  другой итог — ошибка SDK и закрытие экрана. `launch_id` при этом меняется.
-- Держать основной токен аккаунта Link у host. Mini App получает только свои
-  короткоживущие ID/access tokens; без URL, storage и broadcast postMessage.
-- После `close` прекратить выдачу данных. Собственная сессия backend Mini App
-  имеет отдельный срок; отзыв Link не уничтожает её автоматически.
+- Bind the bridge to the actual origin, main document, WebView, and launch.
+  Enforce these checks in the host, not only in page JavaScript.
+- Validate navigation and redirects. Never release credentials to iframes.
+  Close the bridge after an external navigation, revocation, or configuration change.
+- Require HTTPS in Live. Test may use HTTP loopback only with a registered exact
+  origin and port. A local address does not replace authorization.
+- READY launches and tokens last 60 seconds. On `init`, return the current READY
+  only if more than 15 seconds remain. Otherwise create a new launch with
+  `POST /api/v1/mini-apps/launches` and a new `operation_id`. Saved consent normally
+  returns READY silently. Handle `CONSENT_REQUIRED` before releasing new data;
+  other outcomes must fail the SDK request and close the screen.
+- Keep the primary Link account token in the host. Release only scoped,
+  short-lived Mini App tokens; never use URLs, storage, or broadcast messages.
+- Stop releasing data after `close`. The Mini App backend's own session has a
+  separate lifetime and is not automatically revoked by closing the host.
 
-SDK использует только `init` и `close`. Он не вызывает API согласия и не добавляет
-scopes самостоятельно. Все исходы consent/availability до READY обрабатывает host.
-Браузерная реализация описана в [browser-host.md](browser-host.md).
+The SDK calls only `init` and `close`. Consent and availability are host concerns;
+the SDK does not add scopes or call consent endpoints itself.
+See the [browser adapter protocol](browser-host.md) for browser hosts.

@@ -1,33 +1,32 @@
-# Mini App со своим backend и токенами
+# Your own backend and sessions
 
-1. Link проверяет аккаунт и согласие, открывает Mini App с готовым запуском.
-2. Frontend вызывает `init()` и отправляет `idToken` на свой HTTPS endpoint входа.
-3. Backend проверяет подпись и claims, однократно принимает proof и находит
-   собственный аккаунт по `(appId, environment, sub)`.
-4. Backend создаёт свою сессию и выдаёт свои access/refresh tokens или защищённую
-   HttpOnly cookie. Дальнейшие запросы приложения используют эту сессию.
+1. Link authenticates the account, obtains consent, and opens an authorized launch.
+2. Your frontend calls `init()` and sends `idToken` to your HTTPS sign-in endpoint.
+3. Your backend verifies the signature and claims, consumes the proof once, and
+   finds its own account by `(appId, environment, sub)`.
+4. Your backend issues its own session tokens or a secure HttpOnly cookie.
+   Subsequent application requests use that session.
 
-`context.user` нельзя использовать как серверное доказательство входа. ID token
-и scoped access token имеют разные назначения: ID token подтверждает вход,
-а opaque `ma_…` token позволяет получать свежие данные через Mini Apps UserInfo.
-Основной Link access token разработчику Mini App не нужен и не передаётся.
+`context.user` is display data, not server-side proof of identity. The ID token
+proves a launch; the opaque `ma_` access token fetches fresh Mini Apps UserInfo.
+The developer's application does not need or receive the primary Link account token.
 
-## Проверка ID token
+## ID token verification
 
-[server/verify.mjs](../server/verify.mjs) — пример на Node.js без зависимостей,
-который можно адаптировать для backend. Он не является экспортом npm-пакета.
+[server/verify.mjs](../server/verify.mjs) is a dependency-free Node.js example to
+adapt to your backend. It is not an npm export.
 
-Доверенные настройки задаёт сервер разработчика:
+Configure these trusted values on your server:
 
 - JWKS: `https://api-sdk.linkmessenger.me/miniapps/v1/jwks.json`.
 - Issuer: `https://api-sdk.linkmessenger.me/miniapps`.
-- Audience: `urn:link:miniapp:<app-id>:live` (или `:test`).
-- Алгоритм Ed25519/EdDSA, `typ=miniapp-id+jwt`, `token_use=miniapp_id`.
+- Audience: `urn:link:miniapp:<app-id>:live` or `:test`.
+- Algorithm: Ed25519/EdDSA; `typ=miniapp-id+jwt`; `token_use=miniapp_id`.
 
-Проверяйте подпись, issuer, точный audience, app ID, environment, `iat`, `exp`,
-`sub`, `launch_id` и `jti`. TTL proof не больше 60 секунд. Не берите JWKS URL,
-issuer или audience из присланного токена; используйте доверенную конфигурацию.
-Загружайте JWKS по HTTPS с таймаутом, ограничением размера и обработкой ротации.
+Verify the signature, issuer, exact audience, app ID, environment, `iat`, `exp`,
+`sub`, `launch_id`, and `jti`. Proof lifetime must not exceed 60 seconds. Never
+choose the key source, issuer, or audience from unverified token claims.
+Fetch JWKS over HTTPS with a timeout, size bound, caching, and key rotation handling.
 
 ```js
 import { verifyIDToken } from './verify.mjs';
@@ -38,31 +37,33 @@ const identity = await verifyIDToken(idToken, {
   environment: 'live',
   jwks: trustedCachedJWKS,
   consumeJti: async (audience, jti, expiresAt) => {
-    // Реализуйте атомарный SET NX с TTL до expiresAt, например в Redis.
-    // true только для первого использования пары (audience, jti).
+    // Atomically consume (audience, jti) until expiresAt, e.g. Redis SET NX EX.
+    // Return true only for the first use.
     return replayStore.consumeOnce(audience, jti, expiresAt);
   },
 });
-// Выдать собственную сессию для identity.sub.
+// Create your own session for identity.sub.
 ```
 
-Пример намеренно оставляет хранилище сессий, CSRF, rate limit, JWKS cache и
-идемпотентность вашего endpoint приложению. Повторный `jti` не создаёт вторую
-сессию. Сохраните собственную сессию и receipt повтора вместе, чтобы потерянный
-HTTP-ответ не заставлял повторно принимать proof. Никогда не логируйте токены.
+Session storage, CSRF protection, rate limiting, JWKS caching, and endpoint
+idempotency remain application responsibilities. A repeated `jti` must not
+create another session. Persist the session and its retry receipt together so
+that a lost response does not require consuming the same proof again.
+Never log tokens. On page reload, try resuming your own valid session before
+performing another ID-token exchange; never reuse an already consumed proof.
 
-## UserInfo и отзыв
+## UserInfo and revocation
 
-Для интерфейса `LinkMiniApp.getUserInfo()` берёт свежий scoped access token у host.
-Серверный запрос использует `GET /miniapps/v1/userinfo` с `Authorization: Bearer
-<scoped-access-token>` и `Accept: application/json`. Проверьте `sub` ответа
-против уже проверенной собственной сессии. Поля могут исчезнуть после отзыва
-разрешения; не подменяйте ошибку сохранёнными данными как актуальными.
+`LinkMiniApp.getUserInfo()` obtains the current scoped token from the host.
+Server-side callers use `GET /miniapps/v1/userinfo` with `Authorization: Bearer
+<scoped-access-token>` and `Accept: application/json`. Match the returned `sub`
+against your verified session. Fields may disappear after permission changes;
+do not substitute cached data for a failed request as if it were current.
 
-UserInfo не продлевает токен и не выдаёт новые scopes. Истёкший токен host
-заменяет новым запуском того же приложения. `phone` возвращается только при проектном допуске и согласии пользователя;
-отсутствующий `phone_number_verified` не означает подтверждение номера.
+UserInfo does not extend tokens or add scopes. The host replaces an expiring
+token with a new launch of the same app. `phone` requires project approval and
+user consent. An absent `phone_number_verified` does not imply verification.
 
-Отзыв доступа в Link прекращает runtime и UserInfo. Собственные токены backend
-Mini App имеют независимый жизненный цикл: определите их TTL, refresh и logout
-в своём приложении. SDK не обещает автоматически отозвать эти токены.
+Revocation in Link ends runtime access and UserInfo authorization. Your own
+backend session has an independent lifecycle: define its expiry, refresh, and
+logout behavior. The SDK does not automatically revoke your backend tokens.

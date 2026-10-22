@@ -1,11 +1,12 @@
-# Браузерный host
+# Browser host
 
-`@link-apps/miniapp/browser-host` — адаптер для тестирования Mini App в отдельном
-окне браузера. Production native host предоставляет тот же SDK-контракт сам.
+`@link-apps/miniapp/browser-host` connects a Mini App opened in a separate browser
+window to a trusted host. Native hosts provide the same SDK contract themselves.
+The package does not include an application-specific host or authentication UI.
 
 ## Next.js
 
-В клиентском компоненте запускайте соединение после монтирования:
+Connect after mounting a client component:
 
 ```tsx
 'use client';
@@ -19,7 +20,7 @@ export function LinkGate() {
 
   useEffect(() => {
     let active = true;
-    const closed = () => { setContext(null); setError('Запуск завершён'); };
+    const closed = () => { setContext(null); setError('The session has ended'); };
     window.addEventListener('linkminiapp:closed', closed);
     void (async () => {
       const [{ default: sdk }, { installBrowserHost }] = await Promise.all([
@@ -31,44 +32,46 @@ export function LinkGate() {
       if (hostOrigin) installBrowserHost(window, { hostOrigin });
       const next = await sdk.init();
       if (active) setContext(next);
-    })().catch(() => { if (active) setError('Откройте приложение из Link'); });
+    })().catch(() => { if (active) setError('Open this application from Link'); });
     return () => { active = false; window.removeEventListener('linkminiapp:closed', closed); };
   }, []);
 
   if (error) return <p>{error}</p>;
-  if (!context) return <p>Входим через Link…</p>;
-  return <p>Привет, {context.user.name}</p>;
+  if (!context) return <p>Connecting to Link...</p>;
+  return <p>Hello, {context.user.name}</p>;
 }
 ```
 
-Для доверенного локального host соберите frontend с
-`NEXT_PUBLIC_LINK_WEB_HOST_ORIGIN=http://localhost:3008`. Это публичная настройка
-доверенного origin, не секрет. Не принимайте её из query, postMessage или storage.
-Собственная HTTPS-сессия backend создаётся только после проверки ID token.
+`NEXT_PUBLIC_LINK_WEB_HOST_ORIGIN` is a trusted build-time setting, such as
+`http://localhost:3008`. Changing it requires rebuilding the frontend. Never
+accept the host origin from query parameters, window messages, or storage.
+Your backend must verify the ID token before creating its own session.
 
-При переходе с vendored-копии замените оба импорта: основной SDK на
-`@link-apps/miniapp`, адаптер на `@link-apps/miniapp/browser-host`. Уберите старый
-импорт, устанавливающий `window.LinkMiniApp`: две копии SDK в одном документе
-не поддерживаются. Проверенный архив можно установить до публикации в npm.
+When migrating from a bundled SDK copy, replace both the SDK and adapter imports.
+Only one copy may install `window.LinkMiniApp` in a document.
 
-`installBrowserHost(window, { hostOrigin })` возвращает `true`, если начал
-handshake, и `false`, если уже есть bridge, нет opener или это iframe.
-`true` не означает завершённый handshake: `init()` дождётся подключения.
-Ошибочный origin отклоняется. Host должен быть HTTPS или HTTP loopback без path.
-Не используйте `noopener` или несовместимую COOP-политику для тестового popup:
-адаптеру нужен исходный opener. Родительская вкладка остаётся открытой.
+`installBrowserHost(window, { hostOrigin })` returns `true` if it starts a
+handshake and `false` when a bridge already exists, the opener is missing, or
+the document is an iframe. `true` does not mean authentication has completed;
+`init()` waits for the connection. Invalid host origins are rejected.
+The host must use HTTPS or HTTP loopback with no path.
 
-## Обмен
+Keep the parent window open. Do not use `noopener` or a COOP policy that breaks
+the opener relationship. Live Mini App documents still require HTTPS.
 
-1. Mini App отправляет opener сообщение `link-miniapp:hello` с `version: 1` и
-   случайным `nonce` на заранее заданный точный `hostOrigin`.
-2. Host проверяет origin и конкретное окно, создаёт MessageChannel и отвечает
-   `link-miniapp:connected` с тем же nonce и одним перенесённым MessagePort.
-3. По порту проходят только `init`/`close` в формате [bridge v1](host-bridge.md).
-   Широковещательные window messages не содержат токенов или профиля.
-4. Запуск не продлевается. Если на `init` токен истекает, host создаёт новый
-   запуск того же приложения и отвечает им; `launch_id` меняется, канал остаётся.
-5. `{ type: 'link-miniapp:revoked' }`, `pagehide` и возврат из bfcache прекращают
-   канал. Новый документ требует нового handshake.
+## Protocol
 
-Нативные клиенты требуют отдельных bridge и E2E.
+1. The Mini App sends its opener `link-miniapp:hello` with `version: 1` and a
+   random `nonce`, targeting the exact configured `hostOrigin`.
+2. The host validates the Mini App's origin and window identity, creates a
+   MessageChannel, and replies with `link-miniapp:connected`, the same nonce,
+   and one transferred MessagePort.
+3. Only `init` and `close` packets use the port, following [bridge v1](host-bridge.md).
+   Broadcast window messages must not contain credentials or profile data.
+4. Launches are not extended. On `init`, the host replaces an expiring launch
+   with a new launch of the same app. The `launch_id` changes; the channel remains.
+5. `link-miniapp:revoked`, `pagehide`, or restoration from the back-forward cache
+   ends the channel. A new document requires a new handshake.
+
+Bind every bridge request to the actual document and authorized launch.
+Native hosts require their own origin enforcement and device verification.

@@ -13,6 +13,18 @@ function allowsLocalHTTP(location, environment) {
 
 const DEFAULT_API_BASE = "https://api-sdk.linkmessenger.me";
 const MAX_USERINFO_BYTES = 64 * 1024;
+const HOST_ERROR_CODES = new Set([
+  "LINK_REQUIRED", "AUTHORIZATION_REQUIRED", "ACCESS_REVOKED", "ORIGIN_NOT_ALLOWED",
+  "NOT_MAIN_FRAME", "HOST_TIMEOUT", "SERVICE_UNAVAILABLE", "HOST_ERROR", "INVALID_HOST_RESPONSE",
+]);
+
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.length > 0;
+}
 
 function apiOrigin(value) {
   try {
@@ -93,15 +105,27 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
     let timer;
     try {
       let response = await Promise.race([
-        Promise.resolve().then(() => bridge.request({ version: 1, request_id: requestId, method })),
+        Promise.resolve().then(() => bridge.request({ version: 1, request_id: requestId, method })).catch(error => {
+          // Native and browser adapters may reject with ordinary errors. Never
+          // expose their arbitrary messages, causes, or response payloads.
+          const code = error?.code ?? error?.message;
+          throw new MiniAppError(HOST_ERROR_CODES.has(code) ? code : "HOST_ERROR");
+        }),
         new Promise((_, reject) => { timer = setTimeout(() => reject(new MiniAppError("HOST_TIMEOUT")), 10000); })
       ]);
       if (typeof response === "string") {
         if (response.length > 65536) throw new MiniAppError("INVALID_HOST_RESPONSE");
-        response = JSON.parse(response);
+        try { response = JSON.parse(response); }
+        catch { throw new MiniAppError("INVALID_HOST_RESPONSE"); }
       }
-      if (!response || response.version !== 1 || response.request_id !== requestId) throw new MiniAppError("INVALID_HOST_RESPONSE");
-      if (response.error) throw new MiniAppError(response.error.code || "HOST_ERROR");
+      if (!isRecord(response) || response.version !== 1 || response.request_id !== requestId) throw new MiniAppError("INVALID_HOST_RESPONSE");
+      if (response.error != null) {
+        if (!isRecord(response.error) || typeof response.error.code !== "string" ||
+            !/^[A-Z][A-Z0-9_]{0,63}$/.test(response.error.code) || response.result != null) {
+          throw new MiniAppError("INVALID_HOST_RESPONSE");
+        }
+        throw new MiniAppError(response.error.code);
+      }
       return response.result;
     } finally { clearTimeout(timer); }
   }
@@ -112,14 +136,23 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
       pending = (async () => {
         const launch = await request("init");
         if (closed) throw new MiniAppError("ACCESS_REVOKED");
-        const ready = launch?.ready;
+        if (!isRecord(launch)) throw new MiniAppError("INVALID_HOST_RESPONSE");
+        if (launch.result !== "LAUNCH_RESULT_READY") throw new MiniAppError("AUTHORIZATION_REQUIRED");
+        const ready = launch.ready;
         const web = ready?.web;
-        const expiresAt = Date.parse(ready?.expires_at);
-        if (launch?.result !== "LAUNCH_RESULT_READY" || !launch.launch_id || !ready?.app_id || !ready.sub ||
-            !web?.id_token || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new MiniAppError("AUTHORIZATION_REQUIRED");
+        if (!isRecord(ready) || !isRecord(web) ||
+            ![launch.launch_id, ready.app_id, ready.sub, ready.expires_at, web.id_token].every(isNonEmptyString) ||
+            (ready.access_token != null && typeof ready.access_token !== "string") ||
+            (ready.profile != null && (!isRecord(ready.profile) ||
+              ["name", "username", "avatar_url"].some(field => ready.profile[field] != null && typeof ready.profile[field] !== "string")))) {
+          throw new MiniAppError("INVALID_HOST_RESPONSE");
+        }
+        const expiresAt = Date.parse(ready.expires_at);
+        if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new MiniAppError("AUTHORIZATION_REQUIRED");
         if (!(scope.location?.protocol === "https:" || allowsLocalHTTP(scope.location, ready.environment)) || !Array.isArray(web.allowed_origins) ||
             !web.allowed_origins.includes(scope.location.origin)) throw new MiniAppError("ORIGIN_NOT_ALLOWED");
         if (!["ENVIRONMENT_TEST", "ENVIRONMENT_LIVE"].includes(ready.environment) ||
+            !web.allowed_origins.every(origin => typeof origin === "string") ||
             (ready.scopes != null && (!Array.isArray(ready.scopes) || !ready.scopes.every(s => typeof s === "string")))) {
           throw new MiniAppError("INVALID_HOST_RESPONSE");
         }

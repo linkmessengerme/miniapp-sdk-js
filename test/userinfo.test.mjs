@@ -64,9 +64,9 @@ test("a token reissued as a new launch of the same app is used for the next requ
   assert.equal((await f.sdk.init()).launchId, "relaunch");
 });
 
-test("regional API is explicitly configured; unsafe API origins fail before sending a token", async () => {
-  const f = fixture({ apiBaseUrl: "https://api-sdk-fr.linkmessenger.me" });
-  f.scope.fetch = async url => { assert.equal(url, "https://api-sdk-fr.linkmessenger.me/miniapps/v1/userinfo"); return response(data, 200, url); };
+test("a custom API origin is explicitly configured; unsafe API origins fail before sending a token", async () => {
+  const f = fixture({ apiBaseUrl: "https://api.example.com" });
+  f.scope.fetch = async url => { assert.equal(url, "https://api.example.com/miniapps/v1/userinfo"); return response(data, 200, url); };
   assert.equal((await f.sdk.getUserInfo()).phoneNumber, "+12025550123");
   for (const apiBaseUrl of ["http://remote.example", "https://user:pass@api.example", "https://api.example/path", "https://api.example?token=x", "https://api.example#x", "javascript:alert(1)", "//api.example"]) {
     assert.throws(() => fixture({ apiBaseUrl }), /INVALID_CONFIG/);

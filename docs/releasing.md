@@ -1,10 +1,9 @@
-# Подготовка и выпуск
+# Release procedure
 
-Репозиторий `linkmessengerme/miniapp-sdk-js` приватный до выпуска. CI проверяет
-изменения и сохраняет архив; публикация npm не запускается автоматически.
-Первый кандидат — `@link-apps/miniapp@0.1.0`.
+The release candidate is `@link-apps/miniapp@0.1.0`. npm publication is manual;
+CI verifies changes and creates candidate archives. See [verification status](verification.md).
 
-## Проверка кандидата
+## Verify the candidate
 
 ```sh
 npm ci --ignore-scripts
@@ -13,40 +12,43 @@ mkdir -p dist
 npm pack --pack-destination dist
 ```
 
-`check` запускает typecheck, тесты SDK/host/верификатора и установку tarball в
-изолированный временный проект. Проверяются оба ESM-экспорта, TypeScript-типы
-потребителя, UserInfo flow и точный список файлов архива. Временный проект удаляется.
-Runtime-файлы написаны на JS: отдельной transpilation/build стадии нет.
+The checks cover SDK and adapter behavior, token verification, TypeScript, the
+exact archive contents, and installation in an isolated consumer project.
+Runtime files are JavaScript and do not require transpilation.
 
-До выпуска проверьте текущую ревизию, metadata и changelog. Используйте
-`Link Messenger <dev@linkmessenger.me>` для author и committer, как в остальных
-Link SDK; задавайте это локально в репозитории, без изменения global config.
-Архив не должен содержать dev-стенд, node_modules, .env, токены или данные аккаунта.
+Before release, review source, metadata, documentation, examples, and artifacts.
+Use `Link Messenger <dev@linkmessenger.me>` for repository-local commit identity.
+This setting does not change existing authors or commits created by GitHub's web UI.
+Do not include local tooling, environment files, credentials, or user data.
+Review reachable Git history separately before making any repository public;
+a clean working tree or npm archive does not sanitize repository history.
 
-Проверьте `getUserInfo()` в реальном браузере с новым авторизованным запуском.
-Проверка в Node не заменяет CORS-проверку в браузере и тесты на устройствах.
-Результаты сохраняйте только в виде кодов статуса, списка полей и булевых проверок.
+## Browser verification
 
-## Публикация отдельным действием
+Use the candidate SDK in a real browser document on a registered Mini App origin.
+Obtain a fresh launch through an authenticated Link host and call `getUserInfo()`.
+Use the browser's actual fetch implementation with normal CORS enforcement.
+A Node request, a supplied Origin header, or an API mock does not establish that
+the production browser integration works.
 
-Пакет ещё не опубликован. Для публичного выпуска владелец должен открыть
-репозиторий, проверить право публикации в scope `@link-apps` и выполнить выпуск
-проверенной версии. Метаданные `publishConfig.access=public` задают будущий
-режим npm и не меняют приватность GitHub-репозитория.
+Verify successful UserInfo, matching subject, granted fields only, absence of
+phone without its scope, `Cache-Control: no-store`, and one valid CORS origin.
+Also verify new tokens after expiry and rejection after revocation. Record only
+status codes, field names, and boolean outcomes; do not record profile values,
+phone numbers, subjects, ID tokens, or access tokens.
 
-После согласованного решения о выпуске:
+## Publish
 
-1. Обновить changelog с датой выпуска, убрать пометки о неопубликованном пакете,
-   убедиться в доступности документации и зелёном CI на выпускаемом commit.
-2. Проверить `npm whoami` и право публикации в `@link-apps`. Настроить 2FA или
-   trusted publishing; credentials не помещать в репозиторий.
-3. Выполнить `npm run check`, затем `npm publish --dry-run` и проверить состав.
-4. Выполнить `npm publish --access public` из проверенного чистого checkout.
-   `prepublishOnly` повторно запускает полный `check`.
-5. Сверить `npm view @link-apps/miniapp@0.1.0 dist.integrity`, поставить тег
-   `v0.1.0` на выпущенный commit и создать GitHub release.
-6. Проверить установку из registry в проект Mini App и обновить vendored-копию SDK
-   на зависимость `@link-apps/miniapp`. Обновление frontend — отдельный выпуск.
+1. Confirm a green CI run for the release revision and completed browser checks.
+2. Review the public source snapshot and make the documentation available.
+3. Set the release date in the changelog and update unpublished-package notices.
+4. Check `npm whoami` and publishing rights for `@link-apps`. Use 2FA or trusted
+   publishing; keep credentials out of the repository.
+5. Run `npm run check` and `npm publish --dry-run`; review the archive contents.
+6. Publish from the verified clean checkout with `npm publish --access public`.
+7. Verify `npm view @link-apps/miniapp@0.1.0 dist.integrity`, tag the release
+   revision as `v0.1.0`, and create the GitHub release.
+8. Install the registry package in a clean consumer project and verify both
+   exports and TypeScript declarations.
 
-Нативные Android/iOS bridge и device E2E остаются отдельной задачей. Проверка
-веб-стенда не означает готовность всех мобильных клиентов.
+Native host implementations and device E2E remain separate verification tasks.

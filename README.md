@@ -1,34 +1,34 @@
 # Link Mini Apps JavaScript SDK
 
-`@link-apps/miniapp` — браузерный SDK для Mini Apps в Link. Получает контекст
-авторизованного запуска, свежие данные пользователя и закрывает приложение.
-ES modules, TypeScript declarations, без runtime-зависимостей и сборщика.
+`@link-apps/miniapp` connects a Mini App to its authorized Link host. It provides
+launch context, fresh user information, and a request to close the application.
+ES modules and TypeScript declarations are included, with no runtime dependencies
+or build step.
 
-Версия `0.1.0` подготовлена к первому выпуску; в npm пока не опубликована.
-Репозиторий до выпуска приватный. Нативные host bridge Android/iOS и проверки
-на устройствах — отдельный этап; установка этого пакета их не добавляет.
+Version `0.1.0` is a release candidate and has not been published to npm.
+Native host implementations and device testing are separate from this package.
 
-## Установка
+## Installation
 
-До публикации установите проверенный архив из checkout репозитория:
+Until publication, install a verified archive from the repository:
 
 ```sh
 npm ci --ignore-scripts
 npm run check
 mkdir -p dist
 npm pack --pack-destination dist
-# В проекте Mini App:
+# In your Mini App project:
 npm install /absolute/path/link-apps-miniapp-0.1.0.tgz
 ```
 
-После выпуска в npm команда будет `npm install @link-apps/miniapp`.
-Пакет предназначен для современного браузера/WebView с `fetch`, Web Crypto,
-ReadableStream и AbortController. Адаптер использует MessageChannel.
-Для разработки SDK требуется Node.js 20+; CI проверяет Node.js 22 и 24.
+After publication, use `npm install @link-apps/miniapp`.
+The runtime requires a modern browser or WebView with `fetch`, Web Crypto,
+ReadableStream, and AbortController. The optional browser adapter also requires
+MessageChannel. SDK development requires Node.js 20+; CI targets Node.js 22 and 24.
 
-## Вход и профиль
+## Launch and user information
 
-Выполняйте код в основном документе Mini App после открытия из Link:
+Run the SDK in the main document after opening your Mini App from Link:
 
 ```js
 import LinkMiniApp from '@link-apps/miniapp';
@@ -37,37 +37,38 @@ const context = await LinkMiniApp.init();
 // context.user: { sub, name, username, avatarUrl }
 
 const info = await LinkMiniApp.getUserInfo();
-// info: { sub, name?, username?, avatarUrl?, phoneNumber?, phoneNumberVerified? }
+// { sub, name?, username?, avatarUrl?, phoneNumber?, phoneNumberVerified? }
 
-// По действию пользователя:
+// On a user action:
 await LinkMiniApp.close();
 ```
 
-`init()` получает текущий `READY` от host, проверяет origin, окружение и срок.
-Он возвращает `idToken`, необязательный `accessToken`, `scopes`, `user`, `appId`,
-`launchId`, `environment` и `expiresAt` (Unix time в миллисекундах).
-Host выдаёт данные после авторизации в Link и согласия пользователя.
-В Live нужен HTTPS; Test допускает HTTP на `localhost`, `127.0.0.1`, `[::1]`,
-если точный origin с портом зарегистрирован в настройках приложения.
+`init()` obtains the current READY launch from the host and checks its origin,
+environment, and expiry. It returns `idToken`, optional `accessToken`, `scopes`,
+`user`, `appId`, `launchId`, `environment`, and `expiresAt` (Unix milliseconds).
+The host authorizes the user and obtains consent before releasing this context.
 
-`sub` — идентификатор пользователя в конкретном Mini App и окружении.
-Данные из JS подходят для интерфейса. Для входа на собственный backend
-передайте `context.idToken` на свой HTTPS endpoint и проверьте его на сервере,
-после чего выдайте свои access/refresh tokens. Основной токен аккаунта Link
-страница Mini App не получает.
+Live requires HTTPS. Test also allows HTTP on `localhost`, `127.0.0.1`, or
+`[::1]` when the exact origin, including its port, is registered for the app.
+`sub` identifies a user within one application and environment.
 
-## Свежие данные и разрешения
+Use `context.user` for display. To sign in to your own backend, send `idToken`
+to your HTTPS endpoint, verify it on the server, and create your own session.
+The Mini App never receives the primary Link account token.
 
-`getUserInfo()` сам вызывает `init()`, получает текущий scoped access token
-и делает `GET https://api-sdk.linkmessenger.me/miniapps/v1/userinfo`.
-Он проверяет совпадение `sub`, возвращает только разрешённые поля и не кеширует
-результат. Одновременные вызовы делят один запрос. При ошибке сохранённый профиль
-из `init()` не подставляется вместо свежих данных.
+## Permissions and fresh data
 
-Метод не принимает token, user ID или scopes и не показывает согласие.
-Разрешения выбираются в Console до запуска. `profile` обязателен; `phone`
-требует допуска проекта, включения в нужном окружении и отдельного согласия.
-Отказ от телефона не мешает входу. Изменение Live-настроек проходит review.
+`getUserInfo()` calls `init()` to obtain the current scoped access token, then
+requests `GET https://api-sdk.linkmessenger.me/miniapps/v1/userinfo`.
+It checks that the subject matches the launch and returns only granted fields.
+Concurrent calls share one request. Results are not cached, and an API error
+never falls back to the initial profile as if it were fresh data.
+
+The method does not accept tokens, user IDs, or scopes and does not request
+consent. Configure permissions in Console before launch. `profile` is required;
+`phone` requires project approval, environment configuration, and the user's
+separate consent. Declining phone access does not prevent sign-in.
+Changes to Live configuration require review.
 
 ```ts
 import LinkMiniApp, { type MiniAppUserInfo } from '@link-apps/miniapp';
@@ -76,87 +77,83 @@ const info: MiniAppUserInfo = await LinkMiniApp.getUserInfo();
 const phone = info.phoneNumber ?? null;
 ```
 
-Отсутствующее поле означает, что данных нет или они не разрешены.
-Номер имеет формат `+` и цифры. Не считайте его подтверждённым по факту наличия:
-текущий API не возвращает `phoneNumberVerified`. В `context.user` и ID token
-номер не входит. После отзыва доступа ранее полученные данные нужно убрать
-из интерфейса; собственная сессия backend имеет независимые срок и отзыв.
+Missing fields are unavailable or not authorized. A phone number starts with
+`+` followed by digits; its presence does not prove verification. The current
+API does not supply `phoneNumberVerified`. Phone numbers are not included in
+`context.user` or the ID token.
 
-Scoped access token живёт до `expiresAt` (60 секунд); host продлевает запуск
-каждые 30 секунд. SDK запрашивает у host актуальный токен при каждом вызове.
-Он передаёт его только в `Authorization`, без cookies, redirects или кеша.
-Токены нельзя помещать в URL, логи и browser storage.
+Launch tokens last 60 seconds. When a token is near expiry, the host creates a
+new launch of the same app. Existing consent normally makes this silent;
+`launchId` may change during a visit. The SDK asks the host for its current
+token on each call. It sends the token only in `Authorization`, with cookies,
+redirects, and caching disabled. Never put tokens in URLs, logs, or browser storage.
 
-Для доверенной конфигурации регионального API создайте экземпляр один раз:
+An integrator can configure a trusted API origin:
 
 ```js
 import { createSDK } from '@link-apps/miniapp';
 
-const miniApp = createSDK(window, {
-  apiBaseUrl: 'https://api-sdk-fr.linkmessenger.me',
-});
+const miniApp = createSDK(window, { apiBaseUrl: trustedConfig.apiOrigin });
 const info = await miniApp.getUserInfo();
 ```
 
-`apiBaseUrl` — HTTPS origin без path/query/credentials, заданный интегратором.
-Не считывайте его из URL или пользовательских данных. HTTP loopback допустим
-только для Test. Сервер Mini App может получать UserInfo своим серверным SDK;
-этот пакет рассчитан на браузер и host bridge.
+Use an HTTPS origin with no path, query, fragment, or credentials. Do not take
+this setting from a URL or untrusted user input. HTTP loopback is Test-only.
 
-## Браузерный адаптер
+## Optional browser adapter
 
-Для локального веб-стенда импортируйте отдельный экспорт пакета:
+A trusted browser host can open a Mini App in a separate window:
 
 ```js
 import LinkMiniApp from '@link-apps/miniapp';
 import { installBrowserHost } from '@link-apps/miniapp/browser-host';
 
-// Доверенная настройка сборки, а не параметр URL.
+// Trusted build configuration, never a URL parameter.
 installBrowserHost(window, { hostOrigin: 'http://localhost:3008' });
 const context = await LinkMiniApp.init();
 ```
 
-Адаптер нужен для Mini App, открытого стендом в отдельном окне. Он не заменяет
-существующий native bridge. Проверяет точные origin, opener и nonce; scoped
-credentials передаются по привязанному к документу MessagePort. На `pagehide`
-или отзыв адаптер закрывается и отправляет `linkminiapp:closed`. Истечение
-токена канал не закрывает: на следующий `init` host выдаёт новый запуск.
-Обработайте это событие, чтобы убрать экран авторизованного приложения.
+The adapter preserves an existing native bridge and checks the exact opener,
+origin, and nonce. Scoped credentials travel over a document-bound MessagePort.
+Revocation or document teardown closes the adapter and emits `linkminiapp:closed`;
+handle this event by removing authorized content. Token expiry alone does not
+close the channel: the host supplies a new launch on the next `init()`.
 
-Для Next.js переменная `NEXT_PUBLIC_LINK_WEB_HOST_ORIGIN` встраивается **при
-сборке frontend**. После изменения нужен rebuild. Вызывайте установку адаптера
-только в браузере, до `init()`. Live URL Mini App остаётся HTTPS; localhost —
-origin локального host. Простое открытие URL Mini App без host не даёт входа.
+Your host must implement the documented protocol. Opening a Mini App URL in an
+ordinary browser does not authorize it. See the browser-host guide for Next.js.
 
-## Ошибки
+## Errors
 
-SDK использует `MiniAppError.code`; ошибки транспорта адаптера также могут
-быть обычным `Error` с безопасным кодом в `message`.
+Use `MiniAppError.code` for SDK calls. The SDK validates host responses and
+normalizes adapter rejections without exposing raw host messages or causes.
+Direct calls to the browser adapter may still reject with an ordinary `Error`.
 
-| Код | Действие приложения |
+| Code | Application action |
 | --- | --- |
-| `LINK_REQUIRED` | Предложить открыть Mini App из Link с поддержкой bridge |
-| `AUTHORIZATION_REQUIRED` | Попросить host подготовить новый действующий запуск |
-| `ACCESS_REVOKED` | Убрать авторизованный экран и завершить текущий запуск |
-| `ORIGIN_NOT_ALLOWED`, `NOT_MAIN_FRAME` | Проверить origin и основной документ |
-| `HOST_TIMEOUT` | Проверить host, затем предложить новый запуск |
-| `TRANSPORT`, `API_TIMEOUT`, `SERVICE_UNAVAILABLE` | Показать сетевую ошибку; повторить по действию пользователя |
-| `INVALID_CONFIG`, `INVALID_HOST_RESPONSE`, `INVALID_API_RESPONSE` | Исправить конфигурацию/интеграцию, не использовать ответ |
-| `HTTP_ERROR` | Обработать прочий неуспешный ответ API |
+| `LINK_REQUIRED` | Ask the user to open the app from a compatible Link client |
+| `AUTHORIZATION_REQUIRED` | Ask the host for a fresh authorized launch |
+| `ACCESS_REVOKED` | Remove authorized content and end the current visit |
+| `ORIGIN_NOT_ALLOWED`, `NOT_MAIN_FRAME` | Check the registered origin and main document |
+| `HOST_TIMEOUT` | Check the host and offer a new launch |
+| `HOST_ERROR` | Check the host integration and offer a new launch |
+| `TRANSPORT`, `API_TIMEOUT`, `SERVICE_UNAVAILABLE` | Show a network error and let the user retry |
+| `INVALID_CONFIG`, `INVALID_HOST_RESPONSE`, `INVALID_API_RESPONSE` | Correct the integration; discard the response |
+| `HTTP_ERROR` | Handle another unsuccessful HTTP response |
 
-В браузере недоступный CORS-ответ тоже выглядит как `TRANSPORT`; JS не может
-прочитать его HTTP status. SDK не повторяет автоматически 401/403 и не запрашивает
-дополнительные разрешения. Старый host без `access_token` поддерживает `init()`,
-но `getUserInfo()` отклоняется с `AUTHORIZATION_REQUIRED`.
+A browser-blocked CORS response appears as `TRANSPORT`; JavaScript cannot read
+its HTTP status. The SDK does not automatically retry 401/403 or request more
+permissions. Older hosts without `access_token` support `init()`, but
+`getUserInfo()` fails with `AUTHORIZATION_REQUIRED`.
 
-## Документация и разработка
+## Documentation and development
 
-- [Контракт host bridge](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/host-bridge.md)
-- [Собственный backend и токены](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/own-backend.md)
-- [Браузерный host и Next.js](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/browser-host.md)
-- [Подготовка и выпуск](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/releasing.md)
+- [Host bridge contract](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/host-bridge.md)
+- [Your own backend and sessions](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/own-backend.md)
+- [Browser host and Next.js](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/browser-host.md)
+- [Release procedure](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/releasing.md)
+- [Verification status](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/verification.md)
 
-`npm run check` проверяет тесты, типы и установку реального tarball в отдельный
-проект. `npm pack` включает только SDK, адаптер, declarations, README, changelog
-и MIT license. Стенды, серверный пример, тесты и credentials в npm-пакет не входят.
-Документация в репозитории до его открытия доступна только участникам.
+`npm run check` verifies types, tests, and installation of the actual tarball in
+an isolated project. The npm archive contains only the SDK, browser adapter,
+declarations, README, changelog, and MIT license. The server verifier example,
+tests, and repository documentation are not npm exports.

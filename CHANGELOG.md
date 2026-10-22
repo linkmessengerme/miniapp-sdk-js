@@ -2,18 +2,18 @@
 
 ## 0.1.0 — release candidate
 
-- Hosts no longer extend launches with `renew`: an expiring token is reissued as
-  a new launch of the same app, so `launch_id` may change during a visit. The
-  browser adapter no longer closes on token expiry (`link-miniapp:lease` removed).
-
 - `init()` and `close()` for the Link Mini Apps host bridge v1.
-- `getUserInfo()` uses the current scoped Mini App access token, validates the
-  subject and exposes only fields allowed by the granted scopes.
-- Optional `@link-apps/miniapp/browser-host` adapter for a trusted popup host,
-  with origin/nonce checks, a document-bound MessagePort and revocation handling.
-- Adapter revocation invalidates in-flight UserInfo responses in the SDK.
-- ESM exports, TypeScript declarations, standalone integration documentation,
-  package installation checks.
+- `getUserInfo()` obtains the current scoped access token, validates the subject,
+  and exposes only fields allowed by granted permissions.
+- Expiring tokens are replaced by a new launch of the same application;
+  `launchId` may change during a visit without closing the browser adapter.
+- Optional browser host adapter with origin and nonce validation, a
+  document-bound MessagePort, and revocation handling.
+- Revocation invalidates in-flight UserInfo responses.
+- Runtime validation of host response fields and typed errors that discard
+  unexpected adapter messages and causes.
+- ESM exports, TypeScript declarations, integration documentation, a server
+  verification example, and package installation checks.
 
-This version has not been published to npm. Android/iOS host implementations
-and device testing are separate from this JavaScript package.
+This version has not been published to npm. Native host implementations and
+device testing are separate from this JavaScript package.
