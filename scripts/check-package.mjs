@@ -13,7 +13,8 @@ const npm = (args, cwd = root) => process.env.npm_execpath
   ? execFileSync(process.execPath, [process.env.npm_execpath, ...args, '--dry-run=false'], { cwd, encoding: 'utf8' })
   : execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', [...args, '--dry-run=false'], { cwd, encoding: 'utf8' });
 try {
-  const [archive] = JSON.parse(npm(['pack', '--json', '--ignore-scripts', '--pack-destination', temporary]));
+  const packed = JSON.parse(npm(['pack', '--json', '--ignore-scripts', '--pack-destination', temporary]));
+  const archive = Array.isArray(packed) ? packed[0] : packed['@link-apps/miniapp'];
   assert.deepEqual(archive.files.map(file => file.path).sort(), [
     'CHANGELOG.md', 'LICENSE', 'README.md', 'browser-host.d.ts', 'browser-host.js',
     'index.d.ts', 'index.js', 'package.json',
