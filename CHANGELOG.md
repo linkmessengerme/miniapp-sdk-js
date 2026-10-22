@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 — release candidate
+## 0.1.0 — 2026-10-22
 
 - `init()` and `close()` for the Link Mini Apps host bridge v1.
 - `getUserInfo()` obtains the current scoped access token, validates the subject,
@@ -15,5 +15,5 @@
 - ESM exports, TypeScript declarations, integration documentation, a server
   verification example, and package installation checks.
 
-This version has not been published to npm. Native host implementations and
-device testing are separate from this JavaScript package.
+Authenticated production-browser `getUserInfo()` verification is deferred.
+Native host implementations and device testing are separate from this JavaScript package.

@@ -5,23 +5,16 @@ launch context, fresh user information, and a request to close the application.
 ES modules and TypeScript declarations are included, with no runtime dependencies
 or build step.
 
-Version `0.1.0` is a release candidate and has not been published to npm.
 Native host implementations and device testing are separate from this package.
+Authenticated production-browser `getUserInfo()` verification is still pending;
+see the [verification status](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/verification.md).
 
 ## Installation
 
-Until publication, install a verified archive from the repository:
-
 ```sh
-npm ci --ignore-scripts
-npm run check
-mkdir -p dist
-npm pack --pack-destination dist
-# In your Mini App project:
-npm install /absolute/path/link-apps-miniapp-0.1.0.tgz
+npm install @link-apps/miniapp
 ```
 
-After publication, use `npm install @link-apps/miniapp`.
 The runtime requires a modern browser or WebView with `fetch`, Web Crypto,
 ReadableStream, and AbortController. The optional browser adapter also requires
 MessageChannel. SDK development requires Node.js 20+. Run `npm run check` locally

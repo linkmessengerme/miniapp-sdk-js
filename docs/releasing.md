@@ -1,6 +1,6 @@
 # Release procedure
 
-The release candidate is `@link-apps/miniapp@0.1.0`. npm publication is manual.
+The initial release is `@link-apps/miniapp@0.1.0`. npm publication is manual.
 Run checks and create candidate archives locally. GitHub Actions is currently
 disabled. See [verification status](verification.md).
 
@@ -41,7 +41,10 @@ phone numbers, subjects, ID tokens, or access tokens.
 
 ## Publish
 
-1. Confirm successful local checks for the release revision and completed browser checks.
+1. Confirm successful local checks for the release revision and record the browser
+   verification status. The `0.1.0` release proceeds with authenticated
+   production-browser UserInfo verification explicitly deferred; it must not be
+   reported as a successful production integration check.
 2. Review the public source snapshot and make the documentation available.
 3. Set the release date in the changelog and update unpublished-package notices.
 4. Check `npm whoami` and publishing rights for `@link-apps`. Use 2FA or trusted

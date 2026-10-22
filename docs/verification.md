@@ -1,6 +1,6 @@
-# Release candidate verification
+# Release verification
 
-Candidate: `@link-apps/miniapp@0.1.0`. Checked on 2026-10-22.
+Package: `@link-apps/miniapp@0.1.0`. Checked on 2026-10-22.
 
 | Check | Result |
 | --- | --- |
@@ -11,7 +11,7 @@ Candidate: `@link-apps/miniapp@0.1.0`. Checked on 2026-10-22.
 | Chrome 153, after host validation and error handling changes | 6 checks passed |
 | Authenticated production-browser UserInfo | Pending; deferred |
 | GitHub Actions | Disabled; release checks run locally |
-| npm publication | Not performed |
+| npm package | [Registry metadata for 0.1.0](https://registry.npmjs.org/@link-apps/miniapp/0.1.0) |
 
 The 23 tests cover the SDK, browser adapter, server verifier, scope filtering,
 expiry, revocation, malformed responses, and sanitized host errors. Application-specific host tooling
@@ -35,5 +35,6 @@ contained two `Access-Control-Allow-Origin` headers. Follow-up HTTP probes on
 registered origin remains pending. A successful HTTP probe or local fixture is
 not proof of successful production-browser UserInfo.
 
-The candidate is not published. Local checks and production-browser results
-must be confirmed before publication; see the [release procedure](releasing.md).
+Publication of `0.1.0` proceeds with authenticated production-browser UserInfo
+verification explicitly deferred. Local and synthetic browser checks do not
+certify the production integration; see the [release procedure](releasing.md).

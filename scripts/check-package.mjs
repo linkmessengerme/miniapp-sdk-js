@@ -8,9 +8,10 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const temporary = await mkdtemp(join(tmpdir(), 'link-miniapp-package-'));
 // npm passes its CLI path to scripts; fall back to PATH for direct invocation.
+// Always create and install the archive, including during npm publish --dry-run.
 const npm = (args, cwd = root) => process.env.npm_execpath
-  ? execFileSync(process.execPath, [process.env.npm_execpath, ...args], { cwd, encoding: 'utf8' })
-  : execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, { cwd, encoding: 'utf8' });
+  ? execFileSync(process.execPath, [process.env.npm_execpath, ...args, '--dry-run=false'], { cwd, encoding: 'utf8' })
+  : execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', [...args, '--dry-run=false'], { cwd, encoding: 'utf8' });
 try {
   const [archive] = JSON.parse(npm(['pack', '--json', '--ignore-scripts', '--pack-destination', temporary]));
   assert.deepEqual(archive.files.map(file => file.path).sort(), [
