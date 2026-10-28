@@ -2,6 +2,7 @@
 
 `@link-apps/miniapp` connects a Mini App to its authorized Link host. It provides
 launch context, fresh user information, and a request to close the application.
+Version 0.2.0 adds `onBack()` for host Back gestures.
 ES modules and TypeScript declarations are included, with no runtime dependencies
 or build step.
 
@@ -17,7 +18,8 @@ npm install @link-apps/miniapp
 
 The runtime requires a modern browser or WebView with `fetch`, Web Crypto,
 ReadableStream, and AbortController. The optional browser adapter also requires
-MessageChannel. SDK development requires Node.js 20+. Run `npm run check` locally
+MessageChannel. SDK development requires Node.js 24.22.1+. Run `nvm install` and
+`nvm use` to select `.nvmrc`, then run `npm run check` locally
 before publishing; `prepublishOnly` runs the same checks automatically.
 
 ## Launch and user information
@@ -116,6 +118,50 @@ close the channel: the host supplies a new launch on the next `init()`.
 Your host must implement the documented protocol. Opening a Mini App URL in an
 ordinary browser does not authorize it. See the browser-host guide for Next.js.
 
+The working-tree browser adapter can forward the private SDK's `pay` extension
+when the trusted host advertises `payments_v1`. This update is unreleased; public
+`LinkMiniApp` exposes `init`, `getUserInfo`, `onBack` and `close`, with no private
+`pay`. Payment UI and native Back routing require a compatible host. See the host
+bridge contract for checkout dismissal versus closing the whole Mini App.
+
+## Back (unreleased)
+
+Register after initialization, using your own modal/router APIs:
+
+```js
+await LinkMiniApp.init();
+const unsubscribe = LinkMiniApp.onBack(() => {
+  if (modal.isOpen()) { modal.close(); return true; }
+  if (router.canGoBack()) { router.back(); return true; }
+  return false; // Root: the host closes the entire Mini App.
+});
+
+// On component unmount:
+// unsubscribe();
+```
+
+The host must advertise `back_v1`. Before successful `init()` or on an older host,
+registration throws `BACK_NOT_SUPPORTED`. The newest active handler wins across
+SDK instances. Unsubscribe is idempotent and restores the previous handler;
+`false` closes immediately, without trying earlier handlers. No handler also
+asks the host to close. Use app route state to determine root, not browser
+`history.length`, which can include pages outside the Mini App.
+
+A handler must return exactly `true` or `false`, synchronously or as a promise.
+Errors, invalid results and the 1000 ms SDK deadline keep the Mini App open.
+An async handler receives `{ signal }`: check `signal.aborted` before changing
+UI after an await. Timeout, unsubscribe, close and teardown abort the signal;
+late results are ignored. New Back events are ignored while a timed-out handler
+is still running, so a slow router cannot be invoked twice. Keep handlers quick.
+Duplicate host events do not invoke the handler twice.
+
+An open native checkout consumes Back first and returns `dismissed` from the
+internal `pay()` method; it does not invoke this handler or cancel the order.
+`LinkMiniApp.close()` remains an explicit request to close the whole Mini App.
+The client team must implement the
+[event/ack protocol](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/host-bridge.md#back-extension-unreleased)
+and validate Android/iOS behavior. Local tests do not establish device support.
+
 ## Errors
 
 Use `MiniAppError.code` for SDK calls. The SDK validates host responses and
@@ -130,6 +176,8 @@ Direct calls to the browser adapter may still reject with an ordinary `Error`.
 | `ORIGIN_NOT_ALLOWED`, `NOT_MAIN_FRAME` | Check the registered origin and main document |
 | `HOST_TIMEOUT` | Check the host and offer a new launch |
 | `HOST_ERROR` | Check the host integration and offer a new launch |
+| `BACK_NOT_SUPPORTED` | Initialize first; Back requires the new SDK and a `back_v1` host |
+| `INVALID_BACK_HANDLER` | Pass a function returning a boolean to `onBack` |
 | `TRANSPORT`, `API_TIMEOUT`, `SERVICE_UNAVAILABLE` | Show a network error and let the user retry |
 | `INVALID_CONFIG`, `INVALID_HOST_RESPONSE`, `INVALID_API_RESPONSE` | Correct the integration; discard the response |
 | `HTTP_ERROR` | Handle another unsuccessful HTTP response |

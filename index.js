@@ -1,3 +1,5 @@
+import { documentBack } from './back.js';
+
 export class MiniAppError extends Error {
   constructor(code) { super(code); this.name = "MiniAppError"; this.code = code; }
 }
@@ -91,6 +93,7 @@ function userInfo(data, context) {
 // document. The SDK never accepts tokens from URLs, storage or postMessage.
 export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } = {}) {
   const api = apiOrigin(apiBaseUrl);
+  const back = documentBack(scope, code => new MiniAppError(code));
   let pending, pendingUserInfo, current, generation = 0, closed = false;
   // The browser adapter can be revoked while an API response is in flight.
   // Invalidate that response even when the application has not called close().
@@ -131,11 +134,12 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
   }
   const sdk = Object.freeze({
     init() {
-      if (closed) return Promise.reject(new MiniAppError("ACCESS_REVOKED"));
+      if (closed || back.closed) return Promise.reject(new MiniAppError("ACCESS_REVOKED"));
       if (pending) return pending;
       pending = (async () => {
+        const bridge = scope.__LinkMiniAppHost;
         const launch = await request("init");
-        if (closed) throw new MiniAppError("ACCESS_REVOKED");
+        if (closed || back.closed || scope.__LinkMiniAppHost !== bridge) throw new MiniAppError("ACCESS_REVOKED");
         if (!isRecord(launch)) throw new MiniAppError("INVALID_HOST_RESPONSE");
         if (launch.result !== "LAUNCH_RESULT_READY") throw new MiniAppError("AUTHORIZATION_REQUIRED");
         const ready = launch.ready;
@@ -166,6 +170,8 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
         if (current && (current.launchId !== context.launchId || current.appId !== context.appId ||
             current.user.sub !== context.user.sub || current.environment !== context.environment ||
             current.scopes.join(" ") !== context.scopes.join(" "))) generation++;
+        back.connect(bridge, context);
+        if (back.closed) throw new MiniAppError("ACCESS_REVOKED");
         current = context;
         return context;
       })().catch(error => { generation++; current = undefined; throw error; })
@@ -173,7 +179,7 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
       return pending;
     },
     getUserInfo() {
-      if (closed) return Promise.reject(new MiniAppError("ACCESS_REVOKED"));
+      if (closed || back.closed) return Promise.reject(new MiniAppError("ACCESS_REVOKED"));
       if (pendingUserInfo) return pendingUserInfo;
       pendingUserInfo = (async () => {
         // Ask the host for the current token each time; it may reissue it as a new launch.
@@ -198,7 +204,7 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
             throw new MiniAppError(({ 401: "AUTHORIZATION_REQUIRED", 403: "ACCESS_REVOKED", 503: "SERVICE_UNAVAILABLE" })[response.status] || "HTTP_ERROR");
           }
           const info = userInfo(await readUserInfo(response), context);
-          if (closed || ticket !== generation) throw new MiniAppError("ACCESS_REVOKED");
+          if (closed || back.closed || ticket !== generation) throw new MiniAppError("ACCESS_REVOKED");
           if (scope.location.origin !== origin || ("top" in scope && scope.top !== scope)) throw new MiniAppError("ORIGIN_NOT_ALLOWED");
           if (context.expiresAt <= Date.now()) throw new MiniAppError("AUTHORIZATION_REQUIRED");
           return info;
@@ -209,7 +215,8 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
       })().finally(() => { pendingUserInfo = undefined; });
       return pendingUserInfo;
     },
-    async close() { closed = true; generation++; current = undefined; await request("close"); }
+    onBack: back.onBack,
+    async close() { back.stop(); closed = true; generation++; current = undefined; await request("close"); }
   });
   return sdk;
 }

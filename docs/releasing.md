@@ -4,6 +4,21 @@ The initial release is `@link-apps/miniapp@0.1.0`. npm publication is manual.
 Run checks and create candidate archives locally. GitHub Actions is currently
 disabled. See [verification status](verification.md).
 
+## 0.2.0: Back and payment bridge
+
+Version 0.2.0 adds `onBack`, `back_v1` and the browser payment bridge to the
+published 0.1.0 baseline. Do not overwrite that release. Publish 0.2.0 first, then update
+the internal SDK's exact public dependency and lockfile to it before its Git
+release. Until then internal `onBack` deliberately throws `BACK_NOT_SUPPORTED`
+on its declared 0.1.0 core; native `pay` remains compatible with that core.
+
+Run both packages' `npm run check` and, from the internal repository,
+`npm run test:package -- ../link-miniapp-js` to check two real local archives with
+Back/checkout over MessagePort. These commands do not publish, tag or change
+dependencies. The local pair's temporary archive installation is not proof that
+the declared registry dependency already contains Back. Native client acceptance
+is a separate prerequisite for advertising the capabilities in released clients.
+
 ## Verify the candidate
 
 ```sh

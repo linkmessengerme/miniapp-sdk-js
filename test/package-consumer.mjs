@@ -5,11 +5,19 @@ import LinkMiniApp, { createSDK, MiniAppError } from '@link-apps/miniapp';
 import { installBrowserHost } from '@link-apps/miniapp/browser-host';
 
 assert.equal(typeof LinkMiniApp.getUserInfo, 'function');
+assert.equal(typeof LinkMiniApp.onBack, 'function');
+assert.equal(LinkMiniApp.pay, undefined);
 assert.equal(new MiniAppError('LINK_REQUIRED').code, 'LINK_REQUIRED');
 assert.equal(installBrowserHost({ opener: null }, { hostOrigin: 'https://host.example' }), false);
 const origin = 'https://mini.example';
+const documentId = webcrypto.randomUUID();
+let backListener, receiveAck;
+const acknowledged = new Promise(resolve => { receiveAck = resolve; });
 const scope = { crypto: webcrypto, location: new URL(origin),
-  __LinkMiniAppHost: { async request(packet) {
+  __LinkMiniAppHost: { capabilities: ['back_v1'], documentId,
+    subscribeBack(listener) { backListener = listener; return () => { backListener = undefined; }; },
+    ackBack: receiveAck,
+    async request(packet) {
     return { version: 1, request_id: packet.request_id, result: packet.method === 'close' ? {} : {
       result: 'LAUNCH_RESULT_READY', launch_id: 'fixture-launch', ready: {
         app_id: 'fixture-app', sub: 'fixture-sub', environment: 'ENVIRONMENT_LIVE',
@@ -28,6 +36,11 @@ const scope = { crypto: webcrypto, location: new URL(origin),
 };
 const sdk = createSDK(scope);
 assert.deepEqual(await sdk.getUserInfo(), { sub: 'fixture-sub', name: 'Package consumer' });
+let modal = true;
+const off = sdk.onBack(() => { modal = false; return true; });
+backListener({ version: 1, type: 'link-miniapp:back', document_id: documentId, event_id: 1 });
+assert.deepEqual(await acknowledged, { version: 1, type: 'link-miniapp:back-ack', document_id: documentId, event_id: 1, action: 'handled' });
+assert.equal(modal, false); off(); off();
 await sdk.close();
 await assert.rejects(sdk.getUserInfo(), { code: 'ACCESS_REVOKED' });
-console.log('Installed ESM exports and UserInfo flow passed.');
+console.log('Installed ESM exports, UserInfo and Back event/ack passed.');
