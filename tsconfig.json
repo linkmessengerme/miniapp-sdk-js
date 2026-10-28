@@ -7,5 +7,5 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext"
   },
-  "include": ["test/types.mts"]
+  "include": ["test/types.mts", "examples/*.mts"]
 }

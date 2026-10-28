@@ -1,6 +1,6 @@
 {
   "name": "@link-apps/miniapp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Link Mini Apps JavaScript SDK with an optional browser host adapter.",
   "license": "MIT",
   "author": "Link Messenger",
@@ -9,18 +9,48 @@
     "type": "git",
     "url": "git+https://github.com/linkmessengerme/miniapp-sdk-js.git"
   },
-  "bugs": { "url": "https://github.com/linkmessengerme/miniapp-sdk-js/issues" },
-  "keywords": ["link", "link-messenger", "miniapp", "sdk", "webview"],
+  "bugs": {
+    "url": "https://github.com/linkmessengerme/miniapp-sdk-js/issues"
+  },
+  "keywords": [
+    "link",
+    "link-messenger",
+    "miniapp",
+    "sdk",
+    "webview"
+  ],
   "type": "module",
   "main": "./index.js",
   "types": "./index.d.ts",
   "exports": {
-    ".": { "types": "./index.d.ts", "import": "./index.js", "default": "./index.js" },
-    "./browser-host": { "types": "./browser-host.d.ts", "import": "./browser-host.js", "default": "./browser-host.js" }
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    },
+    "./browser-host": {
+      "types": "./browser-host.d.ts",
+      "import": "./browser-host.js",
+      "default": "./browser-host.js"
+    }
   },
-  "files": ["index.js", "index.d.ts", "browser-host.js", "browser-host.d.ts", "README.md", "CHANGELOG.md", "LICENSE"],
-  "sideEffects": ["./index.js"],
-  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "back.js",
+    "browser-host.js",
+    "browser-host.d.ts",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "./index.js"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "typecheck": "tsc --noEmit",
@@ -28,6 +58,10 @@
     "check": "npm run typecheck && npm test && npm run test:package",
     "prepublishOnly": "npm run check"
   },
-  "engines": { "node": ">=20" },
-  "devDependencies": { "typescript": "5.8.3" }
+  "engines": {
+    "node": ">=24.22.1"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  }
 }

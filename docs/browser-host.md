@@ -66,7 +66,10 @@ the opener relationship. Live Mini App documents still require HTTPS.
 2. The host validates the Mini App's origin and window identity, creates a
    MessageChannel, and replies with `link-miniapp:connected`, the same nonce,
    and one transferred MessagePort.
-3. Only `init` and `close` packets use the port, following [bridge v1](host-bridge.md).
+3. `init` and `close` packets use the port, following [bridge v1](host-bridge.md).
+   Optional `capabilities: ['payments_v1', 'back_v1']` in the authenticated connected
+   message enable the implemented extensions. Advertise each independently;
+   old hosts omit them.
    Broadcast window messages must not contain credentials or profile data.
 4. Launches are not extended. On `init`, the host replaces an expiring launch
    with a new launch of the same app. The `launch_id` changes; the channel remains.
@@ -75,3 +78,51 @@ the opener relationship. Live Mini App documents still require HTTPS.
 
 Bind every bridge request to the actual document and authorized launch.
 Native hosts require their own origin enforcement and device verification.
+
+## Back-capable hosts (unreleased)
+
+With `back_v1`, the adapter exposes `documentId`, `subscribeBack` and `ackBack`.
+The document ID is the **hello nonce** from this handshake. Send
+`{ version: 1, type: 'link-miniapp:back', document_id: nonce, event_id: 1 }` on
+the same transferred port. Increase the integer ID for each new gesture;
+retries reuse the ID. Receive
+`{ version: 1, type: 'link-miniapp:back-ack', document_id: nonce, event_id: 1,
+action: 'handled' | 'close' | 'ignored' }` on that port.
+
+The SDK subscribes after `init()`; applications then register `onBack` handlers.
+The adapter ignores Back on window messages, on another document's port/ID,
+or without the authenticated capability. It forwards only ack envelope fields.
+No `back_ack` request/response pair is created: ack is a one-way event packet,
+separate from normal `request_id` responses.
+
+The trusted opener implements the [complete host state machine](host-bridge.md#back-extension-unreleased):
+one pending event, coalesced taps, at most 1500 ms to receive the matching ack,
+ignore stale answers, preserve the screen on timeout/error and close only on
+`action: 'close'`. Closing emits `link-miniapp:revoked` on the port and ends the
+visit. Checkout Back first dismisses checkout with `dismissed`; it sends no Back
+event to the Mini App. Serialize checkout UI transitions with pending Back.
+
+Use [`test/back-host.mjs`](../test/back-host.mjs) and the MessagePort cases in
+[`test/browser-host.test.mjs`](../test/browser-host.test.mjs) as the test host.
+They use synthetic launch data and do not provide an authentication or payment UI.
+For Android/iOS, implement the equivalent native adapter and validate on devices.
+
+## Payment-capable hosts (unreleased)
+
+The adapter exposes a frozen copy of the authenticated handshake's capabilities
+through `window.__LinkMiniAppHost.capabilities`. It never infers payment support
+from URLs, page options or arbitrary window messages. The public SDK still has
+no `pay()` method; the internal SDK supplies it.
+
+For `pay`, the adapter forwards only `version`, `request_id`, `method` and
+`params: { checkout_session_id }` over the same document-bound MessagePort.
+Unknown payment parameters are rejected, including price and identity fields.
+Without the advertised capability it returns `PAYMENTS_NOT_SUPPORTED`.
+
+Checkout has a 30-minute wait instead of the ordinary 8-second request timeout.
+Page teardown, revocation, or acknowledgment of `close` rejects pending checkout
+requests and closes the channel. A timeout never confirms failure or cancels an
+order. The trusted opener must implement the full
+[payment and Back/close contract](host-bridge.md#payments-extension-unreleased),
+including user consent and authorization. This adapter does not supply a payment
+UI, OTP form or native host implementation.

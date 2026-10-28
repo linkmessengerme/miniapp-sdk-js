@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0 — 2026-10-29
+
+- Added public `onBack(handler)` with unsubscribe, explicit handled/root results,
+  cancellation signals and a document-wide dispatcher shared by SDK instances.
+- Added `back_v1` document/event-bound event acknowledgements, replay protection,
+  bounded waits and safe keep-open behavior on errors, timeout or late results.
+- Added native-shaped and MessagePort Back fixtures; documented exact Android/iOS
+  integration requirements and checkout priority. Device support is unverified.
+- Extended the optional browser bridge with authenticated host capabilities and
+  the private SDK's `pay` packet, limited to a checkout-session UUID.
+- Added a separate 30-minute payment wait and invalidation on close/revocation.
+- Documented native payment, Back and close requirements. The public SDK does
+  not expose `pay`; native/device integration remains separately verified.
+- Development requires Node.js 24.22.1 or later.
+
 ## 0.1.0 — 2026-10-22
 
 - `init()` and `close()` for the Link Mini Apps host bridge v1.
