@@ -4,6 +4,13 @@ The initial release is `@link-apps/miniapp@0.1.0`. npm publication is manual.
 Run checks and create candidate archives locally. GitHub Actions is currently
 disabled. See [verification status](verification.md).
 
+## 0.3.0: start value of a link
+
+Version 0.3.0 adds the optional `startParam` to the `init()` context. It changes
+no existing behavior. Publish it before the internal SDK release that pins this
+exact version; an application gets `startParam` through the internal SDK only
+after that bump. Hosts start sending `start_param` independently of this release.
+
 ## 0.2.0: Back and payment bridge
 
 Version 0.2.0 adds `onBack`, `back_v1` and the browser payment bridge to the
