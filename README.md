@@ -2,7 +2,8 @@
 
 `@link-apps/miniapp` connects a Mini App to its authorized Link host. It provides
 launch context, fresh user information, and a request to close the application.
-Version 0.2.0 adds `onBack()` for host Back gestures.
+Version 0.3.0 adds `startParam`: a link can open a particular screen of your Mini App.
+Version 0.2.0 added `onBack()` for host Back gestures.
 ES modules and TypeScript declarations are included, with no runtime dependencies
 or build step.
 

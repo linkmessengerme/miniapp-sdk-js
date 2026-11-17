@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 — unreleased
+## 0.3.0 — 2026-11-18
 
 - `init()` returns the optional `startParam`: the `start` value of the link that
   opened the Mini App (`https://linkm.me/miniapps/<slug>?start=<value>`), so a
