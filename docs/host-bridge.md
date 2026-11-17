@@ -33,6 +33,7 @@ fields fail with `INVALID_HOST_RESPONSE`. Unexpected adapter exceptions become
     "scopes": ["profile"],
     "access_token": "<scoped opaque ma_ token>",
     "profile": { "name": "Alice", "username": "alice", "avatar_url": "" },
+    "start_param": "<optional value of start from the opened link>",
     "web": {
       "url": "https://miniapp.example.com/",
       "allowed_origins": ["https://miniapp.example.com"],
@@ -41,6 +42,13 @@ fields fail with `INVALID_HOST_RESPONSE`. Unexpected adapter exceptions become
   }
 }
 ```
+
+`start_param` is the `start` query value of the link the user opened, returned by
+the server in the READY launch; the host passes the launch on unchanged. It is
+absent for a launch without it. A value that is not a string is
+`INVALID_HOST_RESPONSE`; a string outside `^[A-Za-z0-9._-]{1,256}$` is not
+exposed to the application. The host repeats the value in every launch it
+creates for the same open Mini App, so a reload sees the same `init` result.
 
 The environment is `ENVIRONMENT_TEST` or `ENVIRONMENT_LIVE`; JWT claims use
 `test` or `live`. Older hosts may omit scopes and the access token: the SDK

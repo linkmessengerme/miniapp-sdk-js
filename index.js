@@ -147,6 +147,7 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
         if (!isRecord(ready) || !isRecord(web) ||
             ![launch.launch_id, ready.app_id, ready.sub, ready.expires_at, web.id_token].every(isNonEmptyString) ||
             (ready.access_token != null && typeof ready.access_token !== "string") ||
+            (ready.start_param != null && typeof ready.start_param !== "string") ||
             (ready.profile != null && (!isRecord(ready.profile) ||
               ["name", "username", "avatar_url"].some(field => ready.profile[field] != null && typeof ready.profile[field] !== "string")))) {
           throw new MiniAppError("INVALID_HOST_RESPONSE");
@@ -165,7 +166,10 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
           accessToken: typeof ready.access_token === "string" ? ready.access_token : undefined,
           scopes: Object.freeze(Array.isArray(ready.scopes) ? [...ready.scopes] : ["profile"]),
           user: Object.freeze({ sub: ready.sub, name: ready.profile?.name || "", username: ready.profile?.username || "", avatarUrl: ready.profile?.avatar_url || "" }),
-          appId: ready.app_id, launchId: launch.launch_id, environment: ready.environment, expiresAt
+          appId: ready.app_id, launchId: launch.launch_id, environment: ready.environment, expiresAt,
+          // The value of "start" from the link that opened the app. Whoever made the
+          // link chose it, so only the documented shape ever reaches the application.
+          startParam: typeof ready.start_param === "string" && /^[A-Za-z0-9._-]{1,256}$/.test(ready.start_param) ? ready.start_param : undefined
         });
         if (current && (current.launchId !== context.launchId || current.appId !== context.appId ||
             current.user.sub !== context.user.sub || current.environment !== context.environment ||

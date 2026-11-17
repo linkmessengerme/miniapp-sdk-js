@@ -44,6 +44,31 @@ environment, and expiry. It returns `idToken`, optional `accessToken`, `scopes`,
 `user`, `appId`, `launchId`, `environment`, and `expiresAt` (Unix milliseconds).
 The host authorizes the user and obtains consent before releasing this context.
 
+### Opening a particular screen
+
+A link to your Mini App may carry a value for it:
+
+```
+https://linkm.me/miniapps/<slug>?start=<value>
+```
+
+Link delivers the value unchanged as `context.startParam`; what it means is up
+to you. It is 1 to 256 Latin letters, digits and `._-`, so it needs no URL
+encoding. Without it, and on hosts released before SDK 0.3.0, the field is absent.
+
+```js
+const context = await LinkMiniApp.init();
+// https://linkm.me/miniapps/shop?start=order.1042
+const [kind, id] = (context.startParam ?? '').split('.');
+if (kind === 'order' && /^\d+$/.test(id)) showOrder(id);
+```
+
+Anyone can write such a link, so treat the value as untrusted input: an
+identifier you look up, never a URL to open, an API origin or proof of a right.
+The host repeats the same value for the whole visit, including after a reload,
+so apply it once when the page starts. Put such links in your posts, messages
+and push notifications; the plain link without `start` opens the first screen.
+
 Live requires HTTPS. Test also allows HTTP on `localhost`, `127.0.0.1`, or
 `[::1]` when the exact origin, including its port, is registered for the app.
 `sub` identifies a user within one application and environment.
