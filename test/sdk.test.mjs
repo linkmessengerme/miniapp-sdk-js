@@ -19,6 +19,19 @@ test("init obtains the prepared proof without an argument; profile fields may be
   assert.equal(a, b); assert.equal(a.idToken, "signed-proof"); assert.equal(a.user.username, ""); assert.ok(Object.isFrozen(a.user));
   await f.sdk.close(); assert.equal(f.host.isClosed(), true); await assert.rejects(f.sdk.init(), /ACCESS_REVOKED/);
 });
+test("init passes on the start value of the link, and only in its documented shape", async () => {
+  const plain = fixture(); const none = await plain.sdk.init();
+  assert.equal(none.startParam, undefined);
+  const value = "c.9f0c1e2a-0d0b-4a59-8f6e-0d6f3f1f2a11";
+  const f = fixture(); f.launch.ready.start_param = value; f.host.replace(f.launch);
+  assert.equal((await f.sdk.init()).startParam, value);
+  for (const bad of ["", "a b", "https://attacker.example/", "javascript:alert(1)", "a/../b", "сериал", "a".repeat(257)]) {
+    const g = fixture(); g.launch.ready.start_param = bad; g.host.replace(g.launch);
+    assert.equal((await g.sdk.init()).startParam, undefined, bad);
+  }
+  const long = fixture(); long.launch.ready.start_param = "a".repeat(256); long.host.replace(long.launch);
+  assert.equal((await long.sdk.init()).startParam.length, 256);
+});
 test("no bridge, denied consent, expiry, foreign origin and subframes fail closed", async () => {
   const f = fixture(); delete f.scope.__LinkMiniAppHost; await assert.rejects(f.sdk.init(), /LINK_REQUIRED/);
   f.scope.__LinkMiniAppHost = f.host;
@@ -98,6 +111,8 @@ test("malformed launch fields never enter the public typed context", async () =>
     launch => { launch.ready.web.id_token = {}; },
     launch => { launch.ready.web.allowed_origins.push(123); },
     launch => { launch.ready.access_token = {}; },
+    launch => { launch.ready.start_param = 42; },
+    launch => { launch.ready.start_param = ["c.1"]; },
     launch => { launch.ready.scopes = ["profile", {}]; },
     launch => { launch.ready.profile = []; },
     launch => { launch.ready.profile = "Alice"; },

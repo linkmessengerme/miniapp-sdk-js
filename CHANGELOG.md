@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — unreleased
+
+- `init()` returns the optional `startParam`: the `start` value of the link that
+  opened the Mini App (`https://linkm.me/miniapps/<slug>?start=<value>`), so a
+  link, a message or a push can open a particular screen. Only 1 to 256 Latin
+  letters, digits and `._-` reach the application; the value is untrusted input.
+  Hosts released earlier simply omit it.
+
 ## 0.2.0 — 2026-10-29
 
 - Added public `onBack(handler)` with unsubscribe, explicit handled/root results,

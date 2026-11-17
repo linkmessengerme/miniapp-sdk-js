@@ -13,6 +13,14 @@ export interface MiniAppContext {
   readonly environment: "ENVIRONMENT_TEST" | "ENVIRONMENT_LIVE";
   /** Expiry as Unix time in milliseconds. */
   readonly expiresAt: number;
+  /**
+   * Value of `start` from the link that opened the app,
+   * `https://linkm.me/miniapps/<slug>?start=<value>`: 1 to 256 Latin letters, digits
+   * and `._-`. Absent for a launch without it and on hosts released before 0.3.0.
+   * Untrusted: anyone can write a link. Use it as an identifier to look up, never
+   * as a URL, an API origin or proof of anything. Apply it once per document.
+   */
+  readonly startParam?: string;
 }
 
 /** Fresh data. Optional fields can disappear after authorization is withdrawn. */
