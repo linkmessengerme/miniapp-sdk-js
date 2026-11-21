@@ -2,7 +2,8 @@
 
 `@link-apps/miniapp` connects a Mini App to its authorized Link host. It provides
 launch context, fresh user information, and a request to close the application.
-Version 0.3.0 adds `startParam`: a link can open a particular screen of your Mini App.
+Version 0.4.0 adds layout classes and `getInsets()` for the transparent Link header.
+Version 0.3.0 added `startParam`: a link can open a particular screen of your Mini App.
 Version 0.2.0 added `onBack()` for host Back gestures.
 ES modules and TypeScript declarations are included, with no runtime dependencies
 or build step.
@@ -188,7 +189,7 @@ The client team must implement the
 [event/ack protocol](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/host-bridge.md#back-extension-unreleased)
 and validate Android/iOS behavior. Local tests do not establish device support.
 
-## Link header and screen edges (unreleased)
+## Link header and screen edges
 
 Link draws its header (Back, title, close and action buttons) as a transparent
 overlay above your page, the same for every Mini App. Your page fills the whole

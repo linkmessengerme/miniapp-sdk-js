@@ -4,6 +4,13 @@ The initial release is `@link-apps/miniapp@0.1.0`. npm publication is manual.
 Run checks and create candidate archives locally. GitHub Actions is currently
 disabled. See [verification status](verification.md).
 
+## 0.4.0: Link header and screen edges
+
+Version 0.4.0 adds `ui.css`, `getInsets()`, `onInsetsChange()` and the header
+preview. It changes no existing behavior: without the host's CSS variables every
+value is 0. Publish it before the internal SDK release that pins this exact
+version. Link clients define the variables independently of this release.
+
 ## 0.3.0: start value of a link
 
 Version 0.3.0 adds the optional `startParam` to the `init()` context. It changes
