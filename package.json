@@ -32,7 +32,13 @@
       "types": "./browser-host.d.ts",
       "import": "./browser-host.js",
       "default": "./browser-host.js"
-    }
+    },
+    "./preview": {
+      "types": "./preview.d.ts",
+      "import": "./preview.js",
+      "default": "./preview.js"
+    },
+    "./ui.css": "./ui.css"
   },
   "files": [
     "index.js",
@@ -40,12 +46,17 @@
     "back.js",
     "browser-host.js",
     "browser-host.d.ts",
+    "insets.js",
+    "preview.js",
+    "preview.d.ts",
+    "ui.css",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
   ],
   "sideEffects": [
-    "./index.js"
+    "./index.js",
+    "*.css"
   ],
   "publishConfig": {
     "access": "public",

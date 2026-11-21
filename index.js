@@ -1,4 +1,5 @@
 import { documentBack } from './back.js';
+import { readInsets, subscribeInsets } from './insets.js';
 
 export class MiniAppError extends Error {
   constructor(code) { super(code); this.name = "MiniAppError"; this.code = code; }
@@ -220,6 +221,9 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
       return pendingUserInfo;
     },
     onBack: back.onBack,
+    // Layout values only; available before init(), after close() and outside Link.
+    getInsets: () => readInsets(scope),
+    onInsetsChange: listener => subscribeInsets(scope, listener, code => new MiniAppError(code)),
     async close() { back.stop(); closed = true; generation++; current = undefined; await request("close"); }
   });
   return sdk;

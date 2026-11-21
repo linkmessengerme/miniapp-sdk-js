@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Link header layout</title>
+  <!-- In an app: import '@link-apps/miniapp/ui.css'; -->
+  <link rel="stylesheet" href="../ui.css">
+  <style>
+    body { margin: 0; font: 16px/1.45 system-ui, sans-serif; background: #f4f5f7; color: #111; }
+    .app-bar { background: #0050c8; color: #fff; }
+    .app-bar h1 { margin: 0; padding: 12px 16px; font-size: 20px; }
+    .tabs { display: flex; gap: 8px; padding: 0 16px 10px; }
+    .tabs button { border: 0; border-radius: 999px; padding: 6px 12px; background: rgba(255,255,255,.2); color: #fff; font: inherit; }
+    .content { padding: 16px; display: grid; gap: 12px; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; }
+    .card:nth-child(3n) { background: #111; color: #fff; }
+    .card:nth-child(4n) { background: #ffdb00; color: #111; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+    @media (prefers-color-scheme: dark) { body { background: #000; color: #eee; } .card { background: #1c1c1e; } }
+  </style>
+</head>
+<body>
+  <main class="link-miniapp-page">
+    <header class="link-miniapp-header app-bar" id="app-bar">
+      <h1>Shop</h1>
+      <div class="tabs"><button>All</button><button>Sale</button><button>New</button></div>
+    </header>
+    <section class="content" id="content">
+      <div class="card controls">
+        <button id="toggle-header">Own header on/off</button>
+        <button id="phone">Phone</button>
+        <button id="landscape">Phone landscape</button>
+        <button id="desktop">Desktop</button>
+      </div>
+      <div class="card" id="values">…</div>
+    </section>
+  </main>
+  <script type="module">
+    import { createSDK } from '../index.js';
+    import { installHeaderPreview } from '../preview.js';
+
+    const preview = installHeaderPreview(window, { title: 'Shop' });
+    const sdk = createSDK(window);
+    const show = insets => { document.getElementById('values').textContent = 'getInsets(): ' + JSON.stringify(insets); };
+    show(sdk.getInsets());
+    sdk.onInsetsChange(show);
+
+    const content = document.getElementById('content');
+    for (let i = 1; i <= 30; i++) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.textContent = `Product ${i}: scroll to see the content pass under the Link header.`;
+      content.append(card);
+    }
+    const bar = document.getElementById('app-bar');
+    document.getElementById('toggle-header').onclick = () => { bar.hidden = !bar.hidden; };
+    document.getElementById('phone').onclick = () => preview.update({ device: 'phone', headerHeight: undefined, safeArea: {} });
+    document.getElementById('landscape').onclick = () => preview.update({ device: 'phone', headerHeight: 44, safeArea: { top: 0, right: 59, bottom: 21, left: 59 } });
+    document.getElementById('desktop').onclick = () => preview.update({ device: 'desktop', headerHeight: undefined, safeArea: {} });
+  </script>
+</body>
+</html>

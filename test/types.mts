@@ -1,5 +1,6 @@
 import LinkMiniApp, { createSDK, type MiniAppUserInfo, type BackContext, type BackHandler,
-  type BackEventPacket, type BackAckPacket, type BackHostBridge } from "@link-apps/miniapp";
+  type BackEventPacket, type BackAckPacket, type BackHostBridge, type MiniAppInsets } from "@link-apps/miniapp";
+import { installHeaderPreview, type HeaderPreview } from "@link-apps/miniapp/preview";
 import { installBrowserHost, type BrowserHostConnection } from "@link-apps/miniapp/browser-host";
 
 async function consume() {
@@ -23,6 +24,17 @@ async function consume() {
     subscribeBack(listener) { listener(back); return () => {}; }, ackBack(packet) { void packet; } };
   bridge.ackBack(ack);
   await window.LinkMiniApp.getUserInfo();
+  const insets: MiniAppInsets = LinkMiniApp.getInsets();
+  const top: number = insets.headerHeight + insets.safeArea.bottom;
+  const stop: () => void = LinkMiniApp.onInsetsChange(next => { void next.safeArea.left; });
+  stop();
+  // @ts-expect-error Insets are read-only.
+  insets.headerHeight = 0;
+  const preview: HeaderPreview | null = installHeaderPreview(window, { device: 'desktop', title: 'Shop' });
+  preview?.update({ headerHeight: 60 });
+  // @ts-expect-error Only phone and desktop are previewed.
+  installHeaderPreview(window, { device: 'tablet' });
+  void top;
   // @ts-expect-error Scopes belong to consent/configuration, not UserInfo.
   await LinkMiniApp.getUserInfo({ scopes: ["phone"] });
   // @ts-expect-error Returned data is immutable.

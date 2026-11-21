@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0 — unreleased
+
+- Link draws its header as a transparent overlay above every Mini App. The new
+  `@link-apps/miniapp/ui.css` provides `link-miniapp-page` and
+  `link-miniapp-header`, which keep content clear of the header and the system
+  bars on phones and desktop.
+- `getInsets()` and `onInsetsChange()` return the header height and the safe
+  areas in CSS pixels. They work without `init()` and return 0 outside Link and
+  on older hosts.
+- `@link-apps/miniapp/preview` draws a stand-in for the Link header in an
+  ordinary browser for development.
+- `docs/host-bridge.md` describes what Link clients provide: an edge-to-edge
+  WebView, a transparent header and five CSS variables set at document start.
+
 ## 0.3.0 — 2026-11-18
 
 - `init()` returns the optional `startParam`: the `start` value of the link that

@@ -17,6 +17,7 @@ try {
   const archive = Array.isArray(packed) ? packed[0] : packed['@link-apps/miniapp'];
   assert.deepEqual(archive.files.map(file => file.path).sort(), [
     'CHANGELOG.md', 'LICENSE', 'README.md', 'back.js', 'browser-host.d.ts', 'browser-host.js',
+    'insets.js', 'preview.d.ts', 'preview.js', 'ui.css',
     'index.d.ts', 'index.js', 'package.json',
   ].sort());
   const consumer = join(temporary, 'consumer');

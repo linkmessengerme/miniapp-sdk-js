@@ -1,0 +1,41 @@
+/*
+ * Link Mini Apps layout. The Link header is a transparent overlay above the page;
+ * these classes keep content clear of it and of the system bars. The host defines
+ * the variables (docs/host-bridge.md). Without them every value is 0px, so the
+ * same markup works outside Link and on older hosts.
+ *
+ * .link-miniapp-page    The page container. Its first content starts below the
+ *                       Link header and scrolls under it.
+ * .link-miniapp-header  The app's own sticky header, as the first child of the
+ *                       page. Its background reaches under the Link header; its
+ *                       content starts below it.
+ *
+ * Put your own spacing on elements inside these two: a padding set on them
+ * replaces the offsets. Remove the default margin of <body>.
+ */
+.link-miniapp-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: var(--link-miniapp-header-height, 0px);
+  padding-right: var(--link-miniapp-safe-area-right, 0px);
+  padding-bottom: var(--link-miniapp-safe-area-bottom, 0px);
+  padding-left: var(--link-miniapp-safe-area-left, 0px);
+}
+
+.link-miniapp-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-sizing: border-box;
+  padding-top: var(--link-miniapp-header-height, 0px);
+  padding-right: var(--link-miniapp-safe-area-right, 0px);
+  padding-left: var(--link-miniapp-safe-area-left, 0px);
+}
+
+/* The header replaces the page's top offset and spans the page's full width. */
+.link-miniapp-page > .link-miniapp-header:first-child {
+  margin-top: calc(-1 * var(--link-miniapp-header-height, 0px));
+  margin-right: calc(-1 * var(--link-miniapp-safe-area-right, 0px));
+  margin-left: calc(-1 * var(--link-miniapp-safe-area-left, 0px));
+}

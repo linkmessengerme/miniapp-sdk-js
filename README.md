@@ -188,6 +188,57 @@ The client team must implement the
 [event/ack protocol](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/host-bridge.md#back-extension-unreleased)
 and validate Android/iOS behavior. Local tests do not establish device support.
 
+## Link header and screen edges (unreleased)
+
+Link draws its header (Back, title, close and action buttons) as a transparent
+overlay above your page, the same for every Mini App. Your page fills the whole
+screen, and its content scrolls under the header. Keep your own content clear of
+the header and the system bars with two classes:
+
+```js
+import '@link-apps/miniapp/ui.css';
+```
+
+```html
+<body style="margin: 0">
+  <main class="link-miniapp-page">
+    <!-- Optional. As the first child it sticks to the top; its background
+         reaches under the Link header and its content starts below it. -->
+    <header class="link-miniapp-header">…</header>
+    …
+  </main>
+</body>
+```
+
+`link-miniapp-page` starts its content below the Link header and away from the
+notch, the rounded corners and the home indicator. Put your own spacing on
+elements inside these two classes: a padding set on them replaces the offsets.
+For elements with `position: fixed`, use the CSS variables directly, for example
+`bottom: var(--link-miniapp-safe-area-bottom, 0px)`; the variables are listed in
+the [host contract](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/host-bridge.md#client-header-and-insets-unreleased).
+Use them rather than `env(safe-area-inset-*)`, which does not know about the
+Link header.
+
+The same values are available in JavaScript, without `init()`:
+
+```js
+const { headerHeight, safeArea } = LinkMiniApp.getInsets();
+const stop = LinkMiniApp.onInsetsChange(insets => layout(insets));
+```
+
+Outside Link and on older Link clients, which draw an opaque header above the
+page, every value is `0`, so the same markup works everywhere.
+
+To see the layout in an ordinary browser during development, draw a stand-in
+for the Link header. It does nothing inside Link:
+
+```js
+if (import.meta.env.DEV) {
+  const { installHeaderPreview } = await import('@link-apps/miniapp/preview');
+  installHeaderPreview(window, { title: 'Shop' }); // or { device: 'desktop' }
+}
+```
+
 ## Errors
 
 Use `MiniAppError.code` for SDK calls. The SDK validates host responses and
@@ -204,6 +255,7 @@ Direct calls to the browser adapter may still reject with an ordinary `Error`.
 | `HOST_ERROR` | Check the host integration and offer a new launch |
 | `BACK_NOT_SUPPORTED` | Initialize first; Back requires the new SDK and a `back_v1` host |
 | `INVALID_BACK_HANDLER` | Pass a function returning a boolean to `onBack` |
+| `INVALID_INSETS_LISTENER` | Pass a function to `onInsetsChange` |
 | `TRANSPORT`, `API_TIMEOUT`, `SERVICE_UNAVAILABLE` | Show a network error and let the user retry |
 | `INVALID_CONFIG`, `INVALID_HOST_RESPONSE`, `INVALID_API_RESPONSE` | Correct the integration; discard the response |
 | `HTTP_ERROR` | Handle another unsuccessful HTTP response |
@@ -223,5 +275,5 @@ permissions. Older hosts without `access_token` support `init()`, but
 
 `npm run check` verifies types, tests, and installation of the actual tarball in
 an isolated project. The npm archive contains only the SDK, browser adapter,
-declarations, README, changelog, and MIT license. The server verifier example,
+layout stylesheet, header preview, declarations, README, changelog, and MIT license. The server verifier example,
 tests, and repository documentation are not npm exports.
