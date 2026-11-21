@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 — unreleased
+## 0.4.0 — 2026-11-22
 
 - Link draws its header as a transparent overlay above every Mini App. The new
   `@link-apps/miniapp/ui.css` provides `link-miniapp-page` and
