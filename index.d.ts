@@ -41,6 +41,20 @@ export interface MiniAppSDK {
    * Throws BACK_NOT_SUPPORTED on older hosts. Returns an idempotent unsubscribe. */
   onBack(handler: BackHandler): () => void;
   close(): Promise<void>;
+  /** Space taken by the Link header and the system bars, in CSS pixels. Works
+   * without init(); every value is 0 outside Link and on hosts without the
+   * overlay header. */
+  getInsets(): MiniAppInsets;
+  /** Called with new values after rotation, a window resize or a header change.
+   * Not called when nothing changed. Returns an idempotent unsubscribe. */
+  onInsetsChange(listener: (insets: MiniAppInsets) => void): () => void;
+}
+
+/** Distances from the edges of the WebView. headerHeight already includes
+ * safeArea.top; the values are not added together. */
+export interface MiniAppInsets {
+  readonly headerHeight: number;
+  readonly safeArea: Readonly<{ top: number; right: number; bottom: number; left: number }>;
 }
 
 export interface BackContext {

@@ -3,10 +3,16 @@ import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import LinkMiniApp, { createSDK, MiniAppError } from '@link-apps/miniapp';
 import { installBrowserHost } from '@link-apps/miniapp/browser-host';
+import { installHeaderPreview } from '@link-apps/miniapp/preview';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 
 assert.equal(typeof LinkMiniApp.getUserInfo, 'function');
 assert.equal(typeof LinkMiniApp.onBack, 'function');
 assert.equal(LinkMiniApp.pay, undefined);
+assert.deepEqual(createSDK({}).getInsets(), { headerHeight: 0, safeArea: { top: 0, right: 0, bottom: 0, left: 0 } });
+assert.equal(installHeaderPreview({}), null);
+assert.ok(existsSync(createRequire(import.meta.url).resolve('@link-apps/miniapp/ui.css')));
 assert.equal(new MiniAppError('LINK_REQUIRED').code, 'LINK_REQUIRED');
 assert.equal(installBrowserHost({ opener: null }, { hostOrigin: 'https://host.example' }), false);
 const origin = 'https://mini.example';

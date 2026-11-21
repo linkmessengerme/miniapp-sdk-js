@@ -268,3 +268,121 @@ WebViews. WebView history alone does not define which native screen should close
 
 A Mini App implemented as a native client module uses that module's native
 navigation stack. The JavaScript SDK and WebView history do not participate.
+
+## Client header and insets (unreleased)
+
+Every Link client draws the Mini App header (Back arrow when shown, title, close
+and action buttons) as a transparent overlay above the page. The page fills the
+whole screen and scrolls underneath the header. This is the same for every Mini
+App; there is no per-app setting. The host reports where its header and the
+system bars are, and the page keeps its own content clear of them.
+
+### Layout the host provides
+
+- The WebView fills the whole Mini App container: from the top edge of the screen,
+  under the status bar, to the bottom edge, under the home indicator or the
+  navigation bar. The host draws its header on top of the WebView.
+- The host does not shift or pad the page itself: no automatic content insets, no
+  `fitsSystemWindows` padding, no frame offset below the header. The page applies
+  the values below. On iOS set `scrollView.contentInsetAdjustmentBehavior = .never`;
+  on Android lay the WebView out edge to edge.
+- The header spans the full width. It has no background, border or shadow. Each
+  control and the title sit on their own backing, for example a translucent
+  blurred capsule, so they stay legible over any content, light or dark. Status
+  bar content follows the Link theme.
+- Touches on header controls go to the host. Touches elsewhere in the header area,
+  including between controls, go to the WebView, so a scroll that starts under the
+  header still scrolls the page.
+
+### CSS variables
+
+Before the first page script runs, the host defines these custom properties on the
+root element of the main document:
+
+| Variable | Distance |
+| --- | --- |
+| `--link-miniapp-header-height` | From the top edge of the WebView to the bottom edge of the client header. Includes the status bar. |
+| `--link-miniapp-safe-area-top` | Status bar, notch or Dynamic Island. Already inside the header height. |
+| `--link-miniapp-safe-area-right` | Rounded corners and the notch in landscape, on the right. |
+| `--link-miniapp-safe-area-bottom` | Home indicator, gesture bar or button navigation bar. |
+| `--link-miniapp-safe-area-left` | Rounded corners and the notch in landscape, on the left. |
+
+Values are CSS pixels with the `px` unit, for example `92px`. Each is measured from
+the matching edge of the WebView, rounded up to a whole pixel and never negative.
+iOS points and Android dp equal CSS pixels at the default WebView scale; do not
+apply text zoom to these values. They are not added together: the header height
+already contains the top safe area. The on-screen keyboard is not included.
+
+Install them with a script that runs at document start, in the main frame only:
+
+- iOS: `WKUserScript` with `.atDocumentStart` and `forMainFrameOnly: true`.
+- Android: `WebViewCompat.addDocumentStartJavaScript`, limited to the app's allowed
+  origins (feature `DOCUMENT_START_SCRIPT`).
+- Desktop: the equivalent preload or document-start hook of the embedded browser.
+
+The script adds a constructed stylesheet with one `:root { … }` rule to
+`document.adoptedStyleSheets`. Frameworks do not manage adopted stylesheets, so the
+values survive hydration and `<head>` updates. Where constructed stylesheets are
+unavailable, set the properties on `document.documentElement.style`. Do not
+insert `<style>` elements into the page markup.
+`installHeaderPreview()` in [`preview.js`](../preview.js) defines the variables the
+same way and can serve as a reference for the script.
+
+When a value changes (rotation, window resize on desktop, split view, a changed
+header size after an accessibility text size change), update the rule in the live
+document, then call `window.dispatchEvent(new Event('linkminiapp:insets'))`.
+Apply the update in the same frame as the native layout change so that the
+header and the page move together. Do not dispatch the event when nothing changed.
+Keep the document-start script current too, so the next navigation starts with
+the new values.
+
+Older hosts, the browser host and ordinary browsers define none of these
+variables. Pages read them with a `0px` fallback, so the same CSS also works
+there: an older host draws an opaque header above the WebView. The values describe
+layout only and are not a security boundary; the page can read and override them
+in its own document.
+
+### What the page does
+
+The page offsets its content with these variables, never with
+`env(safe-area-inset-*)` alone: `env()` does not know about the Link header, and
+`viewport-fit=cover` is not required. A page without its own header pads its
+scrolling container; the content then scrolls under the Link header:
+
+```css
+.page {
+  padding-top: var(--link-miniapp-header-height, 0px);
+  padding-right: var(--link-miniapp-safe-area-right, 0px);
+  padding-bottom: var(--link-miniapp-safe-area-bottom, 0px);
+  padding-left: var(--link-miniapp-safe-area-left, 0px);
+}
+```
+
+A page with its own sticky header extends the header's background under the Link
+header and starts its content below it. The page container then has no top
+padding of its own:
+
+```css
+.app-header {
+  position: sticky;
+  top: 0;
+  padding-top: var(--link-miniapp-header-height, 0px);
+}
+```
+
+Elements with `position: fixed` use the same values, for example
+`top: var(--link-miniapp-header-height, 0px)` or
+`bottom: var(--link-miniapp-safe-area-bottom, 0px)`. The SDK ships ready-made
+classes for both patterns, `link-miniapp-page` and `link-miniapp-header` in
+`@link-apps/miniapp/ui.css`, and reads the current values from JavaScript with
+`getInsets()` and `onInsetsChange()`.
+
+### Host checklist
+
+- WebView edge to edge; no native content insets or padding.
+- Transparent header across the full width; each control and the title legible on
+  their own backing; touches outside controls reach the page.
+- All five variables defined at document start in the main frame, in CSS pixels,
+  rounded up.
+- Live update plus `linkminiapp:insets` on every change, and nothing when unchanged.
+- The same behaviour on iOS, Android and Desktop, for every Mini App.
