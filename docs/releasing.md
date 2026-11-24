@@ -4,6 +4,18 @@ The initial release is `@link-apps/miniapp@0.1.0`. npm publication is manual.
 Run checks and create candidate archives locally. GitHub Actions is currently
 disabled. See [verification status](verification.md).
 
+## 0.5.0: header control and device state
+
+Version 0.5.0 adds `header_v1` (header control, `getHeaderLayout()`, pause, sound
+and closing events) and `device_v1` (`getDevice()`, `onDeviceChange()`,
+`supports()`). Every new call throws `HEADER_NOT_SUPPORTED` or
+`DEVICE_NOT_SUPPORTED`, or returns null, until a Link client advertises the
+capability, so the release changes nothing for existing pages. `getInsets()` gains
+the additive `controls` field, and `onInsetsChange()` listeners now run once per
+frame in `requestAnimationFrame` instead of synchronously inside the event.
+Publish it before the internal SDK release that pins this exact version. Link
+clients advertise the capabilities independently of this release.
+
 ## 0.4.0: Link header and screen edges
 
 Version 0.4.0 adds `ui.css`, `getInsets()`, `onInsetsChange()` and the header

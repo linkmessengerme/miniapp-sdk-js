@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 — 2026-11-24
 
 - `header_v1`: after `init()`, a page can change the Link header on clients that
   advertise it. `setBackButton()` picks the left button (`auto`, `back`, `close`,

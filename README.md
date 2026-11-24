@@ -2,7 +2,10 @@
 
 `@link-apps/miniapp` connects a Mini App to its authorized Link host. It provides
 launch context, fresh user information, and a request to close the application.
-Version 0.4.0 adds layout classes and `getInsets()` for the transparent Link header.
+Version 0.5.0 adds `header_v1`: a page can control the Link header, learn where its
+controls are, and hear pause, sound and closing events; `device_v1` adds coarse
+device state. Link clients that support them are being prepared.
+Version 0.4.0 added layout classes and `getInsets()` for the transparent Link header.
 Version 0.3.0 added `startParam`: a link can open a particular screen of your Mini App.
 Version 0.2.0 added `onBack()` for host Back gestures.
 ES modules and TypeScript declarations are included, with no runtime dependencies
