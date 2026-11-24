@@ -1,5 +1,7 @@
 import { documentBack } from './back.js';
-import { readInsets, subscribeInsets } from './insets.js';
+import { readInsets, subscribeInsets, readHeaderLayout, subscribeHeaderLayout } from './insets.js';
+import { documentHeader } from './header.js';
+import { documentDevice } from './device.js';
 
 export class MiniAppError extends Error {
   constructor(code) { super(code); this.name = "MiniAppError"; this.code = code; }
@@ -95,6 +97,8 @@ function userInfo(data, context) {
 export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } = {}) {
   const api = apiOrigin(apiBaseUrl);
   const back = documentBack(scope, code => new MiniAppError(code));
+  const header = documentHeader(scope, code => new MiniAppError(code));
+  const device = documentDevice(scope, code => new MiniAppError(code));
   let pending, pendingUserInfo, current, generation = 0, closed = false;
   // The browser adapter can be revoked while an API response is in flight.
   // Invalidate that response even when the application has not called close().
@@ -176,6 +180,9 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
             current.user.sub !== context.user.sub || current.environment !== context.environment ||
             current.scopes.join(" ") !== context.scopes.join(" "))) generation++;
         back.connect(bridge, context);
+        // header_v1 is optional: a broken header transport turns off only the header.
+        header.connect(bridge, context);
+        device.connect(bridge, context);
         if (back.closed) throw new MiniAppError("ACCESS_REVOKED");
         current = context;
         return context;
@@ -224,7 +231,42 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
     // Layout values only; available before init(), after close() and outside Link.
     getInsets: () => readInsets(scope),
     onInsetsChange: listener => subscribeInsets(scope, listener, code => new MiniAppError(code)),
-    async close() { back.stop(); closed = true; generation++; current = undefined; await request("close"); }
+    getHeaderLayout: () => readHeaderLayout(scope),
+    onHeaderLayoutChange: listener => subscribeHeaderLayout(scope, listener, code => new MiniAppError(code)),
+    // header_v1: after init(), only on hosts that advertise it.
+    setBackButton: header.setBackButton,
+    setCloseConfirmation: header.setCloseConfirmation,
+    setMenuItems: header.setMenuItems,
+    onMenuItem: header.onMenuItem,
+    onMinimize: header.onMinimize,
+    onRestore: header.onRestore,
+    setHeaderStyle: header.setHeaderStyle,
+    setFullscreen: header.setFullscreen,
+    setOrientation: header.setOrientation,
+    setSoundControl: header.setSoundControl,
+    isMuted: header.isMuted,
+    isPaused: header.isPaused,
+    onPause: header.onPause,
+    onResume: header.onResume,
+    onSoundChange: header.onSoundChange,
+    onClosing: header.onClosing,
+    async minimize() {
+      if (closed) throw new MiniAppError("ACCESS_REVOKED");
+      header.ready();
+      await request("minimize");
+    },
+    // A capability is supported only after init() and only when the host provides all of it.
+    supports(name) {
+      if (closed || !current || typeof name !== 'string') return false;
+      if (name === 'back_v1') return back.supported;
+      if (name === 'header_v1') return header.supported;
+      if (name === 'device_v1') return device.supported;
+      const bridge = scope.__LinkMiniAppHost;
+      return Array.isArray(bridge?.capabilities) && bridge.capabilities.includes(name) && /^[a-z][a-z0-9_]{0,31}$/.test(name);
+    },
+    getDevice: device.getDevice,
+    onDeviceChange: device.onDeviceChange,
+    async close() { back.stop(); header.stop(); device.stop(); closed = true; generation++; current = undefined; await request("close"); }
   });
   return sdk;
 }

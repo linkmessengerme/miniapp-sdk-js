@@ -2,7 +2,10 @@
 
 `@link-apps/miniapp` connects a Mini App to its authorized Link host. It provides
 launch context, fresh user information, and a request to close the application.
-Version 0.4.0 adds layout classes and `getInsets()` for the transparent Link header.
+Version 0.5.0 adds `header_v1`: a page can control the Link header, learn where its
+controls are, and hear pause, sound and closing events; `device_v1` adds coarse
+device state. Link clients that support them are being prepared.
+Version 0.4.0 added layout classes and `getInsets()` for the transparent Link header.
 Version 0.3.0 added `startParam`: a link can open a particular screen of your Mini App.
 Version 0.2.0 added `onBack()` for host Back gestures.
 ES modules and TypeScript declarations are included, with no runtime dependencies
@@ -147,7 +150,8 @@ ordinary browser does not authorize it. See the browser-host guide for Next.js.
 
 The working-tree browser adapter can forward the private SDK's `pay` extension
 when the trusted host advertises `payments_v1`. This update is unreleased; public
-`LinkMiniApp` exposes `init`, `getUserInfo`, `onBack` and `close`, with no private
+`LinkMiniApp` exposes `init`, `getUserInfo`, `onBack`, `close`, the layout values
+and the header controls, with no private
 `pay`. Payment UI and native Back routing require a compatible host. See the host
 bridge contract for checkout dismissal versus closing the whole Mini App.
 
@@ -240,6 +244,85 @@ if (import.meta.env.DEV) {
 }
 ```
 
+## Controlling the header (unreleased)
+
+On clients that advertise `header_v1`, a page can change the Link header after
+`init()`. Every call throws `HEADER_NOT_SUPPORTED` on older clients, where the
+header keeps its usual behaviour, so wrap the setup in `try`:
+
+```js
+await LinkMiniApp.init();
+try {
+  LinkMiniApp.setMenuItems([
+    { id: 'settings', title: 'Настройки', icon: 'settings' },
+    { id: 'rules', title: 'Правила' },
+  ]);
+  LinkMiniApp.onMenuItem(id => openScreen(id));
+  LinkMiniApp.setCloseConfirmation(true);     // unsaved changes
+  LinkMiniApp.onMinimize(() => game.pause());  // the page keeps running
+  LinkMiniApp.onRestore(() => game.resume());
+  LinkMiniApp.setHeaderStyle({ icons: 'light' }); // a dark page
+  LinkMiniApp.setFullscreen(true);             // games: a small ⋯ | ✕ capsule
+  LinkMiniApp.setOrientation('landscape');     // games played sideways
+} catch (error) {
+  if (error.code !== 'HEADER_NOT_SUPPORTED') throw error;
+}
+```
+
+- `setBackButton('auto' | 'back' | 'close' | 'hidden')` picks the left button.
+  `auto`, the default, shows Back when the page can go back and Close otherwise.
+  Back taps reach your `onBack()` handler.
+- `setCloseConfirmation(true)` makes Link ask before the user closes the app with
+  ✕, the menu, a gesture or Back. Minimizing and `LinkMiniApp.close()` never ask.
+- `setMenuItems(items)` puts up to five items before the Link items of the ⋯
+  menu. A title is plain text of 1 to 32 characters; an icon is one of the names
+  in the `MenuIcon` type. The list replaces the previous one; `[]` removes it.
+- `minimize()` minimizes the app as ⌄ does.
+- `setFullscreen(true)` hides the title, the left button and the system bars; one
+  small ⋯ | ✕ capsule stays in the top right corner. Keep only that corner clear:
+  `getInsets().controls` (or `--link-miniapp-controls-top`, `-right`, `-width`,
+  `-height`) gives its rectangle.
+- `setOrientation('landscape' | 'portrait' | 'auto')` turns the Mini App screen.
+  Link returns to its own orientation when the app is minimized or closed. On
+  phones in landscape the Link header is always compact.
+- `setHeaderStyle({ title: 'hidden' })` removes the capsule with your app's icon
+  and name, so the header row is yours: `getHeaderLayout().free` then spans from
+  the left button to the ⋯ capsule. Link shows the name at the top of the ⋯ menu.
+  `setHeaderStyle()` changes only the keys you pass.
+- `getHeaderLayout()` returns where the Link controls are, in CSS pixels from the
+  top left corner: `back` (✕ / ‹), `title`, `controls` (the capsule) and `free`, the
+  gap in the header row that your own controls may use. A missing element is
+  `null`. `onHeaderLayoutChange()` reports changes. Both work without `init()`.
+
+  ```js
+  const place = ({ free, controls }) => {
+    if (free) Object.assign(search.style, { left: `${free.x}px`, top: `${free.y}px`, width: `${free.width}px`, height: `${free.height}px` });
+    else if (controls) score.style.top = `${controls.y + controls.height + 8}px`;
+  };
+  place(LinkMiniApp.getHeaderLayout());
+  LinkMiniApp.onHeaderLayoutChange(place);
+  ```
+
+- `onPause(reason => …)` / `onResume()` tell when the page is covered or hidden:
+  minimized, Link in the background, the screen locked, a call, or a Link menu or
+  dialog over the page. Pause a game there.
+- `setSoundControl(true)` adds «Без звука» to the ⋯ menu; Link remembers the
+  choice and reports it with `onSoundChange(muted => …)`. Mute yourself: Link
+  cannot mute a page.
+- `onClosing(reason => …)` runs just before the app closes; save within about
+  300 ms with synchronous storage or `navigator.sendBeacon`.
+- `supports('device_v1')`, then `getDevice()` and `onDeviceChange()`: platform,
+  performance class (`low`/`mid`/`high`), thermal state, power saving, low battery.
+  Lower the frame rate or effects when `powerSaving`, `thermal` is `serious` or
+  `performance` is `low`.
+- System Back still reaches `onBack()` in fullscreen: in a game, open the pause
+  menu there and return `true`.
+
+Settings last until the page is reloaded or navigates to another document. The
+user can always close and minimize the app, and the Link menu items always
+remain. See the
+[host contract](https://github.com/linkmessengerme/miniapp-sdk-js/blob/main/docs/host-bridge.md#header-extension-unreleased).
+
 ## Errors
 
 Use `MiniAppError.code` for SDK calls. The SDK validates host responses and
@@ -257,6 +340,10 @@ Direct calls to the browser adapter may still reject with an ordinary `Error`.
 | `BACK_NOT_SUPPORTED` | Initialize first; Back requires the new SDK and a `back_v1` host |
 | `INVALID_BACK_HANDLER` | Pass a function returning a boolean to `onBack` |
 | `INVALID_INSETS_LISTENER` | Pass a function to `onInsetsChange` |
+| `HEADER_NOT_SUPPORTED` | Initialize first; header control requires a `header_v1` client |
+| `INVALID_HEADER_OPTION`, `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `INVALID_LAYOUT_LISTENER` | Correct the arguments of the header call |
+| `DEVICE_NOT_SUPPORTED`, `INVALID_DEVICE_LISTENER` | Device state needs `init()` and a `device_v1` client; pass a function |
+| `MINIMIZE_NOT_AVAILABLE` | The app is already minimized or busy; nothing to do |
 | `TRANSPORT`, `API_TIMEOUT`, `SERVICE_UNAVAILABLE` | Show a network error and let the user retry |
 | `INVALID_CONFIG`, `INVALID_HOST_RESPONSE`, `INVALID_API_RESPONSE` | Correct the integration; discard the response |
 | `HTTP_ERROR` | Handle another unsuccessful HTTP response |

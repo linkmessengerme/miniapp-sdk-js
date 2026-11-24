@@ -386,3 +386,339 @@ classes for both patterns, `link-miniapp-page` and `link-miniapp-header` in
   rounded up.
 - Live update plus `linkminiapp:insets` on every change, and nothing when unchanged.
 - The same behaviour on iOS, Android and Desktop, for every Mini App.
+
+## Header extension (unreleased)
+
+`header_v1` lets the page ask the client to change its header: the left button,
+a confirmation before closing, own items in the ⋯ menu, minimize events, the
+colour of the header buttons and a compact header for games. The page asks; the
+client decides how to draw it and enforces the rules below itself.
+
+### Rules the page cannot change
+
+- The user can always close and minimize the Mini App. Close stays in the ⋯ menu
+  in every state, and in the corner capsule in fullscreen. Minimize stays as ⌄ in
+  the capsule, or as a menu item in fullscreen.
+- Link menu items always remain, after the page's own items, in their own group.
+- The page cannot change the title, the app icon, the verified mark or the test
+  label. It may hide the title capsule as a whole; Link then shows the icon and
+  name as the first, non-interactive row of the ⋯ menu, and for a Test launch
+  keeps a small amber "тест" label next to the capsule.
+- The close confirmation is a Link dialog with fixed text. Close is always one of
+  its buttons. It never appears for a close the user did not start.
+- Settings belong to one document. A full navigation, a reload, a new document ID,
+  revocation or closing returns the header to the defaults.
+- Only after a successful `init()`, only in the authorized main document. A host
+  that advertises `header_v1` also implements `back_v1`.
+
+### Native adapter surface
+
+```ts
+interface HeaderHostBridge {
+  readonly capabilities: readonly string[]; // includes 'header_v1' and 'back_v1'
+  readonly documentId: string;               // the same document ID as back_v1
+  setHeaderState(packet: HeaderStatePacket): void;
+  subscribeHeader(listener: (event: HeaderEventPacket) => void): () => void;
+}
+```
+
+The request method `minimize` (same envelope as `close`) minimizes the app and
+returns an empty result, or `error: { code: 'MINIMIZE_NOT_AVAILABLE' }` when the
+app is already minimized, closing, or behind a Link dialog. Without
+the capability the SDK throws `HEADER_NOT_SUPPORTED` and sends nothing, so older
+hosts keep their behaviour.
+
+### Header state, page → host
+
+```json
+{"version":1,"type":"link-miniapp:header-state","document_id":"<document-uuid>","revision":3,
+ "state":{"back_button":"auto","close_confirmation":false,"icons":"auto","title":"shown","fullscreen":false,
+          "orientation":"auto","menu_items":[{"id":"settings","title":"Настройки","icon":"settings"}]}}
+```
+
+The packet always carries the whole state. `revision` is a strictly increasing
+positive safe integer per document, chosen by the SDK; the host applies a packet
+only if its revision is higher than the last applied one, and otherwise ignores
+it. The SDK merges calls made together into one packet and sends nothing when the
+state equals the last one sent. The host may apply at most one per frame and keeps
+the last. A menu title is also limited to 128 UTF-16 code units, so the largest
+valid state stays far below the 8 KiB limit.
+
+The host validates every field and ignores the whole packet when one is invalid,
+keeping the previous state; unknown extra fields are ignored. Packets larger than
+8 KiB are invalid.
+
+| Field | Values | Default |
+| --- | --- | --- |
+| `back_button` | `auto`, `back`, `close`, `hidden` | `auto` |
+| `close_confirmation` | boolean | `false` |
+| `menu_items` | 0–5 items | `[]` |
+| `icons` | `auto`, `light`, `dark` | `auto` |
+| `title` | `shown`, `hidden` | `shown` |
+| `fullscreen` | boolean | `false` |
+| `orientation` | `auto`, `portrait`, `landscape` | `auto` |
+
+A menu item has `id` (`^[a-z0-9_-]{1,32}$`, unique), `title` (plain text, 1–32
+grapheme clusters after trimming, no control, line-separator or bidirectional
+override characters) and an optional `icon` from the list in `header.js`
+(`MENU_ICONS`). Draw an unknown icon name as no icon. Draw every name with the
+Link icon below, in the same outline style, size and colour as the Link menu
+items; pages never supply images.
+
+| Name | Android drawable |
+| --- | --- |
+| `settings` | `ic_settings_24` |
+| `info` | `ic_info_tinted_24` |
+| `help` | `ic_help_24` |
+| `star` | `ic_fluent_star_24_regular` |
+| `bookmark` | `ic_post_bookmark_regular` |
+| `edit` | `ic_compose_outline_24` |
+| `search` | `ic_search_24` |
+| `bell` | `ic_bell_24` |
+| `user` | `ic_fluent_person_24_regular` |
+| `gift` | `ic_gift_24` |
+| `cart` | `ic_fluent_cart_24_regular` |
+| `list` | `ic_list_20` |
+| `chat` | `ic_fluent_chat_empty_24_regular` |
+| `sound` | `ic_fluent_speaker_2_24_regular` |
+| `mute` | `ic_fluent_speaker_mute_24_regular` |
+| `pause` | `ic_fluent_pause_24_filled` (filled, like all Link playback icons) |
+| `play` | `ic_fluent_play_24_filled` (filled) |
+| `restart` | `ic_retry_24` |
+| `rules` | `ic_fluent_document_24_regular` |
+
+iOS and desktop use the same drawings. Render titles as plain
+text. Drop an item whose title equals a Link menu item in the current language,
+ignoring case.
+
+### Behaviour
+
+- `back_button: auto` is today's behaviour: ‹ when the page can go back, ✕
+  otherwise. `back` always shows ‹ and `close` always shows ✕. `hidden` shows no
+  left button. A tap on ‹ is a Back gesture under `back_v1`; a tap on ✕ is a user
+  close. System Back and edge swipes keep following `back_v1` in every mode.
+- `close_confirmation: true` asks before closes the user starts: ✕, the menu's
+  Close item, ✕ on the minimized bar, a close gesture, and a Back gesture whose
+  ack is `close`. It does not ask for `LinkMiniApp.close()`, minimize, revocation,
+  sign-out, account switch or a forced close by Link. When a fourth minimized app
+  must close another, prefer one without confirmation; otherwise close the oldest
+  as before.
+- `menu_items` appear first in the ⋯ menu, in their own group, followed by the Link
+  groups. A tap closes the menu and sends `menu_item`.
+- `icons` sets the ink of the header controls, the title and the status bar over
+  the page: `light` for a dark page, `dark` for a light page. `auto` keeps the
+  client's own choice. The page cannot set the header colour itself.
+- `title: hidden` removes the capsule with the icon and name. The header row keeps
+  its height; the left button and the capsule stay where they were, and the gap
+  between them is reported as `free` in `getHeaderLayout()`. The ⋯ menu starts with
+  the icon and name. `setHeaderStyle()` changes only the keys it is given.
+- `fullscreen` and `orientation` follow the layout rules below.
+
+### Layout: apps and games, portrait and landscape
+
+The header must not get in the way. In every layout the page fills the whole
+WebView, touches outside the host controls reach the page, and the page learns
+where the controls are from CSS variables, not from fixed numbers.
+
+A header_v1 host defines four more variables next to the five of 0.4.0, always,
+in every layout:
+
+| Variable | Distance |
+| --- | --- |
+| `--link-miniapp-controls-top` | From the top edge of the WebView to the top of the ⋯ capsule. |
+| `--link-miniapp-controls-right` | From the right edge of the WebView to the right end of the capsule. |
+| `--link-miniapp-controls-width` | Width of the capsule. |
+| `--link-miniapp-controls-height` | Height of the capsule. |
+
+The host also reports the other two header controls, measured from the top and
+left edges, and leaves a group undefined while that element is not shown:
+
+| Variables | Element |
+| --- | --- |
+| `--link-miniapp-back-left`, `-top`, `-width`, `-height` | The ✕ / ‹ button. Undefined when hidden and in fullscreen. |
+| `--link-miniapp-title-left`, `-top`, `-width`, `-height` | The capsule with the app icon and name. Undefined when hidden and in fullscreen. |
+
+Round positions down and sizes up, so each rectangle covers its control. Touches
+inside these rectangles always go to Link, whatever the page draws there.
+
+`getInsets().controls` returns the capsule variables; they are 0 on older hosts.
+`getHeaderLayout()` returns all three controls as `{ x, y, width, height }` from
+the top left corner of the page, plus `free`: the gap in the header row between
+the left controls (or the left safe area) and the capsule, with 8 px margins, or
+null when it is narrower than 48 px or when the capsule sits in the camera band
+(fullscreen portrait), where the notch interrupts the row. `onHeaderLayoutChange()`
+follows `linkminiapp:insets` and window resizes. The
+`--link-miniapp-header-height` keeps its meaning: the lowest point of host UI at
+the top, never less than the top safe area. Every change of layout (rotation,
+fullscreen on or off, compact header) updates all variables and dispatches
+`linkminiapp:insets` in the same frame.
+
+1. **App, portrait (phone).** As in 0.4.0: status bar, then a 58 pt header row
+   with the left button, the title and the ⋯ | ⌄ capsule.
+2. **App, landscape (phone).** The header is compact: one 44 pt row, 36 pt buttons,
+   the title without the second line. The status bar is hidden, as iOS does in
+   landscape. Header controls stay inside the left and right safe areas, away from
+   the notch. The page pads left and right with the safe-area variables.
+3. **Game, fullscreen, portrait.** The status bar and the Android navigation bar
+   are hidden; an edge swipe shows them for a moment. The left button and the
+   title are hidden; one small ⋯ | ✕ capsule (32 pt high) stays in the top right
+   corner. Where the top safe area is a notch or Dynamic Island band, the capsule
+   sits in that band beside it, so it takes no space from the game; otherwise
+   8 pt from the top edge. Minimize moves into the ⋯ menu.
+4. **Game, fullscreen, landscape.** Same capsule, 8 pt from the top edge and from
+   the right safe area. No status bar. The game keeps only the capsule rectangle
+   clear and uses the rest of the top row.
+5. **Desktop.** Fullscreen compacts the header inside the Mini App area; it does
+   not make the operating-system window fullscreen. Orientation has no effect.
+
+In landscape the ⋯ menu does not fit in one column (about 11 rows on a screen
+about 390 pt high). Show it as two columns: the page's own items on the left, the
+Link items on the right, with 40 pt rows. Without own items, one column of Link
+items.
+
+The capsule is always visible and reachable: it is how the user closes and
+minimizes a game. It does not fade or hide by itself.
+
+System gestures in fullscreen:
+
+- iOS: the status bar does not reappear in fullscreen. The home indicator auto-hides (`prefersHomeIndicatorAutoHidden`) and
+  screen edges defer system gestures (`preferredScreenEdgesDeferringSystemGestures`
+  = all edges), so a game swipe is not taken by the system on the first try. The
+  client turns off its own edge-swipe Back in fullscreen; ✕ and ⋯ stay.
+- Android: immersive mode with transient bars on swipe
+  (`BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`). Transient bars lie over the game;
+  while they are visible the capsule moves below the status bar and returns with
+  them. The variables do not change for transient bars. System Back cannot be turned off;
+  it keeps following `back_v1`, so a game should open its pause menu and return
+  `true`.
+- Desktop: Esc is not taken from a focused page; the page handles it itself.
+
+### Touch, accessibility and motion
+
+- Every host control has a touch area of at least 44 × 44 pt (iOS, desktop) or
+  48 × 48 dp (Android), larger than the drawn control where needed: the 32 pt
+  fullscreen capsule and the 36 pt compact buttons get invisible margins. The
+  `controls`, `back` and `title` variables describe these touch areas.
+- The backing of each control changes together with `icons`, so a wrong choice by
+  the page never makes a button invisible. The fullscreen capsule backing is at
+  least 72 % opaque: white icons keep a contrast of at least 6.5 : 1 over a white
+  game background.
+- Menu rows are at least 44 pt high in every orientation. When a landscape column
+  does not fit the screen height, that column scrolls; the identity row (icon and
+  name) heads the left column.
+- Accessibility labels: «Назад», «Закрыть», «Ещё», «Свернуть». With the title
+  hidden or in fullscreen, «Ещё» also names the app («Ещё, Hayrat»). The identity
+  row in the menu is a heading. Own menu items are read by their titles.
+- With a larger text size the header row and the menu rows grow and the variables
+  change; titles that do not fit end with an ellipsis, never clipped.
+- Desktop keyboard order: left button, title (opens About), ⋯, ⌄ or ✕.
+- With Reduce Motion on, entering and leaving fullscreen, the compact header and
+  orientation changes use a cross-fade or no animation instead of movement.
+
+### Performance
+
+- Update all variables in one stylesheet change and dispatch one
+  `linkminiapp:insets` per change, not one per variable, and none when nothing
+  changed. Compute the rectangles from the layout pass that draws the header; do
+  not measure again for the page.
+- The SDK reads the variables once per frame in `requestAnimationFrame` for all
+  listeners, after the page's own resize handlers, so the browser recalculates
+  styles once per frame. (Measured on a 4,000-element page: 21 ms per frame
+  instead of 34 ms when the SDK read inside the event.)
+- Apply at most one header state per frame. Parse and validate it off the main
+  thread when the platform allows.
+- Send `minimize` when minimizing starts, before the animation, so a game stops
+  its sound at once. A minimized WebView stops drawing: Android `onPause()`, iOS
+  out of the window, desktop hidden; JavaScript timers may keep running, so the
+  page stops its own loops in `onMinimize`.
+
+Orientation:
+
+- `landscape` turns the Mini App screen to landscape and lets it follow the sensor
+  between the two landscape sides; `portrait` keeps it upright; `auto` follows the
+  device and the system rotation lock. A requested orientation applies even with
+  the system rotation lock on, only to the Mini App screen and only while it is in
+  front. Minimizing and closing return Link to its own orientation; restoring
+  turns the screen back before `restore` is sent.
+- Android: `requestedOrientation` of the Mini App activity (`SENSOR_LANDSCAPE`,
+  `SENSOR_PORTRAIT`, `UNSPECIFIED`). iOS: `supportedInterfaceOrientations` of the
+  Mini App view controller plus `requestGeometryUpdate`. On iPad split view and on
+  desktop it is a hint the host may ignore.
+
+### Events, host → page
+
+```json
+{"version":1,"type":"link-miniapp:header-event","document_id":"<document-uuid>","event_id":7,"event":"menu_item","item_id":"settings"}
+{"version":1,"type":"link-miniapp:header-event","document_id":"<document-uuid>","event_id":8,"event":"minimize"}
+{"version":1,"type":"link-miniapp:header-event","document_id":"<document-uuid>","event_id":9,"event":"restore"}
+```
+
+`event_id` is a strictly increasing positive safe integer per document, separate
+from Back event IDs. The SDK drops repeated and older IDs, and a `menu_item` whose
+item the page has since removed. No acknowledgement is sent: the page cannot delay
+or cancel a minimize. Send `minimize` as soon as minimizing starts (⌄, the menu
+or `minimize()`), before the animation, and `restore` when the app is visible
+again. Moving Link itself
+to the background is not a minimize; the page sees `visibilitychange` for that.
+
+The SDK subscribes once after a successful `init()` when the adapter advertises
+`header_v1` and has both methods. Teardown, bridge, origin, document or identity
+replacement and `SDK.close()` stop the SDK side, including a packet not yet sent.
+
+[`test/header-host.mjs`](../test/header-host.mjs) is a synthetic host with these
+checks. It is an executable contract example, not a client implementation.
+
+### Pause, sound and closing events (header_v1)
+
+```json
+{"version":1,"type":"link-miniapp:header-event","document_id":"<uuid>","event_id":10,"event":"pause","reason":"overlay"}
+{"version":1,"type":"link-miniapp:header-event","document_id":"<uuid>","event_id":11,"event":"resume"}
+{"version":1,"type":"link-miniapp:header-event","document_id":"<uuid>","event_id":12,"event":"sound","muted":true}
+{"version":1,"type":"link-miniapp:header-event","document_id":"<uuid>","event_id":13,"event":"closing","reason":"user"}
+```
+
+- `pause` / `resume`: the host keeps a set of reasons — `minimized`, `background`
+  (Link left the screen), `locked`, `interrupted` (call, Siri, alarm, audio focus
+  lost) and `overlay` (the ⋯ menu, a Link dialog or sheet, share). It
+  sends `pause` with the reason that made the set non-empty and `resume` when the
+  set is empty again; reason changes in between are not sent. Send `pause` before
+  the overlay or animation appears. After `minimize` the host also sends `pause`.
+- `sound`: with `sound_control: true` in the state, the host adds «Без звука» /
+  «Включить звук» to the system group of the ⋯ menu, remembers the choice per app
+  and user on the device, sends the remembered value right after `sound_control`
+  turns on, and again on every toggle. The page mutes itself. On iOS, run Mini App
+  WebViews in the `.ambient` audio session category, so the ring/silent switch
+  silences them and the user's music keeps playing.
+- `closing`: sent once before the app closes, with `user` (✕, the menu, Back that
+  ended in close, ✕ on the minimized bar — after the confirmation if any),
+  `evicted` (a fourth app needs room) or `revoked` (access withdrawn, sign-out,
+  account switch). The host keeps the page running for 300 ms after sending, then
+  tears it down. Not sent for `LinkMiniApp.close()`.
+
+## Device extension (unreleased)
+
+`device_v1` gives a page coarse device state so it can save power and keep a game
+smooth. The bridge has `capabilities` including `device_v1`, the same `documentId`
+and `subscribeDevice(listener): () => void`. The host sends the whole state once on
+subscription and again on every change:
+
+```json
+{"version":1,"type":"link-miniapp:device","document_id":"<uuid>","event_id":1,
+ "state":{"platform":"ios","link_version":"7.1.0","performance":"high","thermal":"nominal","power_saving":false,"battery_low":false}}
+```
+
+| Field | Values | Source |
+| --- | --- | --- |
+| `platform` | `ios`, `android`, `desktop` | The client. |
+| `link_version` | `^[0-9A-Za-z.+-]{1,32}$` | The client version. |
+| `performance` | `low`, `mid`, `high` | The client's estimate from memory and processor cores, fixed per device. |
+| `thermal` | `nominal`, `fair`, `serious`, `critical` | iOS `ProcessInfo.thermalState`; Android `PowerManager` thermal status (API 29+, `nominal` before); macOS `ProcessInfo.thermalState`; Windows `nominal`. |
+| `power_saving` | boolean | iOS Low Power Mode; Android Battery Saver; desktop OS battery saver. |
+| `battery_low` | boolean | At most 20 % and not charging. |
+
+Never send a battery percentage, a device model, a name or any other value that
+helps identify a device. All values need no runtime permission on any platform.
+Do not send more than one state per second; coalesce. The SDK ignores malformed
+and repeated states and exposes them only after `init()` in the authorized main
+document. `supports(name)` in the SDK is true only for an extension the host
+provides completely.

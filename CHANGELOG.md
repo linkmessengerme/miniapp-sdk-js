@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.5.0 — 2026-11-24
+
+- `header_v1`: after `init()`, a page can change the Link header on clients that
+  advertise it. `setBackButton()` picks the left button (`auto`, `back`, `close`,
+  `hidden`); `setCloseConfirmation()` makes Link ask before the user closes the
+  app; `setMenuItems()` adds up to five own items before the Link items of the ⋯
+  menu, picked through `onMenuItem()`; `onMinimize()`, `onRestore()` and
+  `minimize()` handle the ⌄ button; `setHeaderStyle({ icons })` sets the colour
+  of the header buttons and `setHeaderStyle({ title: 'hidden' })` removes the
+  title capsule; `setFullscreen()` shrinks the header to a small corner
+  capsule for games; `setOrientation()` asks for landscape or portrait.
+- `getInsets().controls` returns the rectangle of the ⋯ capsule, so a game in
+  fullscreen keeps only that corner clear. 0 on older clients.
+- `getHeaderLayout()` and `onHeaderLayoutChange()` return the rectangles of the
+  left button, the title and the capsule, and the free gap in the header row, so
+  a page can line up its own controls with the Link header. Null on older clients.
+- The page cannot remove closing, minimizing or the Link menu items, and cannot
+  set the title. On older clients every call throws `HEADER_NOT_SUPPORTED` and
+  the header behaves as before.
+- `onInsetsChange()` listeners now run once per frame in `requestAnimationFrame`
+  (at the end of the task where it is unavailable), sharing one read of the
+  variables with `onHeaderLayoutChange()`. A throwing listener no longer stops
+  the others.
+- `onPause()` / `onResume()` with the reason (minimized, background, locked,
+  interrupted, overlay), `isPaused()`; `setSoundControl()` adds a Link mute item
+  to the ⋯ menu, reported with `onSoundChange()` / `isMuted()`; `onClosing()` gives
+  the page about 300 ms to save before the app closes.
+- `device_v1`: `getDevice()` / `onDeviceChange()` return coarse device state —
+  platform, Link version, performance class, thermal state, power saving and low
+  battery, without a battery percentage or anything identifying. `supports(name)`
+  tells whether an extension is available after `init()`.
+- New error codes: `DEVICE_NOT_SUPPORTED`, `INVALID_DEVICE_LISTENER`, `HEADER_NOT_SUPPORTED`, `INVALID_HEADER_OPTION`,
+  `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `INVALID_LAYOUT_LISTENER`, `MINIMIZE_NOT_AVAILABLE`.
+- `docs/host-bridge.md` describes the packets and what clients must enforce.
+  No Link client implements `header_v1` yet.
+
 ## 0.4.0 — 2026-11-22
 
 - Link draws its header as a transparent overlay above every Mini App. The new

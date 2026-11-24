@@ -82,6 +82,7 @@ export function documentBack(scope, failure) {
   }
   const state = {
     get closed() { return stopped; },
+    get supported() { return Boolean(bridge) && sameDocument(); },
     stop,
     connect(next, context) {
       if (stopped) return;
