@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.1 — 2026-11-24
+
+- A failed header or device transport turns off only that extension for the
+  page: its calls throw `HEADER_NOT_SUPPORTED` / `DEVICE_NOT_SUPPORTED`, as on an
+  older client, and `supports()` returns false for it. In 0.5.0 they threw
+  `ACCESS_REVOKED`, which a page could take for the end of the visit.
+  `ACCESS_REVOKED` is now reserved for the end of the visit (closed, revoked,
+  navigated away, another identity).
+
 ## 0.5.0 — 2026-11-24
 
 - `header_v1`: after `init()`, a page can change the Link header on clients that
@@ -31,9 +40,6 @@
   platform, Link version, performance class, thermal state, power saving and low
   battery, without a battery percentage or anything identifying. `supports(name)`
   tells whether an extension is available after `init()`.
-- A failed header or device transport turns off only that extension for the
-  page: its calls throw `HEADER_NOT_SUPPORTED` / `DEVICE_NOT_SUPPORTED`, as on an
-  older client. `ACCESS_REVOKED` is reserved for the end of the visit.
 - New error codes: `DEVICE_NOT_SUPPORTED`, `INVALID_DEVICE_LISTENER`, `HEADER_NOT_SUPPORTED`, `INVALID_HEADER_OPTION`,
   `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `INVALID_LAYOUT_LISTENER`, `MINIMIZE_NOT_AVAILABLE`.
 - `docs/host-bridge.md` describes the packets and what clients must enforce.

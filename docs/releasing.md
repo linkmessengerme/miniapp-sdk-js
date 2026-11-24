@@ -4,6 +4,13 @@ The initial release is `@link-apps/miniapp@0.1.0`. npm publication is manual.
 Run checks and create candidate archives locally. GitHub Actions is currently
 disabled. See [verification status](verification.md).
 
+## 0.5.1: header and device transport errors
+
+Version 0.5.1 fixes only the error code after a failed `header_v1` or `device_v1`
+transport: `HEADER_NOT_SUPPORTED` / `DEVICE_NOT_SUPPORTED` instead of
+`ACCESS_REVOKED`. The API and the host contract are unchanged. Publish it before
+the internal SDK release that pins this exact version.
+
 ## 0.5.0: header control and device state
 
 Version 0.5.0 adds `header_v1` (header control, `getHeaderLayout()`, pause, sound
