@@ -7,7 +7,8 @@ const MODES = ['auto', 'back', 'close', 'hidden'];
 const ICONS = ['auto', 'light', 'dark'];
 const MENU_ICONS = ['settings', 'info', 'help', 'star', 'bookmark', 'edit', 'search', 'bell', 'user',
   'gift', 'cart', 'list', 'chat', 'sound', 'mute', 'pause', 'play', 'restart'];
-const DEFAULTS = Object.freeze({ back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', fullscreen: false });
+const ORIENTATIONS = ['auto', 'portrait', 'landscape'];
+const DEFAULTS = Object.freeze({ back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', fullscreen: false, orientation: 'auto' });
 
 function validItems(items) {
   if (!Array.isArray(items) || items.length > 5) return false;
@@ -43,7 +44,7 @@ export function headerHost({ documentId, send = () => {}, close = () => {}, mini
           packet.document_id !== documentId || !Number.isSafeInteger(packet.revision) ||
           packet.revision <= revision || !next || typeof next !== 'object' ||
           !MODES.includes(next.back_button) || typeof next.close_confirmation !== 'boolean' ||
-          !ICONS.includes(next.icons) || typeof next.fullscreen !== 'boolean' ||
+          !ICONS.includes(next.icons) || typeof next.fullscreen !== 'boolean' || !ORIENTATIONS.includes(next.orientation) ||
           !validItems(next.menu_items)) return false;
       revision = packet.revision;
       // Unknown icons are drawn without an icon; items that look like Link items are dropped.

@@ -431,7 +431,7 @@ hosts keep their behaviour.
 ```json
 {"version":1,"type":"link-miniapp:header-state","document_id":"<document-uuid>","revision":3,
  "state":{"back_button":"auto","close_confirmation":false,"icons":"auto","fullscreen":false,
-          "menu_items":[{"id":"settings","title":"Настройки","icon":"settings"}]}}
+          "orientation":"auto","menu_items":[{"id":"settings","title":"Настройки","icon":"settings"}]}}
 ```
 
 The packet always carries the whole state. `revision` is a strictly increasing
@@ -451,6 +451,7 @@ keeping the previous state; unknown extra fields are ignored. Packets larger tha
 | `menu_items` | 0–5 items | `[]` |
 | `icons` | `auto`, `light`, `dark` | `auto` |
 | `fullscreen` | boolean | `false` |
+| `orientation` | `auto`, `portrait`, `landscape` | `auto` |
 
 A menu item has `id` (`^[a-z0-9_-]{1,32}$`, unique), `title` (plain text, 1–32
 grapheme clusters after trimming, no control, line-separator or bidirectional
@@ -476,12 +477,75 @@ ignoring case.
 - `icons` sets the ink of the header controls, the title and the status bar over
   the page: `light` for a dark page, `dark` for a light page. `auto` keeps the
   client's own choice. The page cannot set the header colour itself.
-- `fullscreen: true` hides the left button and the title. The host draws one small
-  capsule ⋯ | ✕ in the top right corner, below the status bar, and adds Minimize
-  to the ⋯ menu. The status bar stays. Update `--link-miniapp-header-height` to
-  the bottom edge of that capsule and dispatch `linkminiapp:insets` in the same
-  frame. On desktop it changes the header inside the Mini App area, not the
-  operating-system window.
+- `fullscreen` and `orientation` follow the layout rules below.
+
+### Layout: apps and games, portrait and landscape
+
+The header must not get in the way. In every layout the page fills the whole
+WebView, touches outside the host controls reach the page, and the page learns
+where the controls are from CSS variables, not from fixed numbers.
+
+A header_v1 host defines four more variables next to the five of 0.4.0, always,
+in every layout:
+
+| Variable | Distance |
+| --- | --- |
+| `--link-miniapp-controls-top` | From the top edge of the WebView to the top of the ⋯ capsule. |
+| `--link-miniapp-controls-right` | From the right edge of the WebView to the right end of the capsule. |
+| `--link-miniapp-controls-width` | Width of the capsule. |
+| `--link-miniapp-controls-height` | Height of the capsule. |
+
+`getInsets().controls` returns them; they are 0 on older hosts. The
+`--link-miniapp-header-height` keeps its meaning: the lowest point of host UI at
+the top, never less than the top safe area. Every change of layout (rotation,
+fullscreen on or off, compact header) updates all variables and dispatches
+`linkminiapp:insets` in the same frame.
+
+1. **App, portrait (phone).** As in 0.4.0: status bar, then a 58 pt header row
+   with the left button, the title and the ⋯ | ⌄ capsule.
+2. **App, landscape (phone).** The header is compact: one 44 pt row, 36 pt buttons,
+   the title without the second line. The status bar is hidden, as iOS does in
+   landscape. Header controls stay inside the left and right safe areas, away from
+   the notch. The page pads left and right with the safe-area variables.
+3. **Game, fullscreen, portrait.** The status bar and the Android navigation bar
+   are hidden; an edge swipe shows them for a moment. The left button and the
+   title are hidden; one small ⋯ | ✕ capsule (32 pt high) stays in the top right
+   corner. Where the top safe area is a notch or Dynamic Island band, the capsule
+   sits in that band beside it, so it takes no space from the game; otherwise
+   8 pt from the top edge. Minimize moves into the ⋯ menu.
+4. **Game, fullscreen, landscape.** Same capsule, 8 pt from the top edge and from
+   the right safe area. No status bar. The game keeps only the capsule rectangle
+   clear and uses the rest of the top row.
+5. **Desktop.** Fullscreen compacts the header inside the Mini App area; it does
+   not make the operating-system window fullscreen. Orientation has no effect.
+
+The capsule is always visible and reachable: it is how the user closes and
+minimizes a game. It does not fade or hide by itself.
+
+System gestures in fullscreen:
+
+- iOS: the home indicator auto-hides (`prefersHomeIndicatorAutoHidden`) and
+  screen edges defer system gestures (`preferredScreenEdgesDeferringSystemGestures`
+  = all edges), so a game swipe is not taken by the system on the first try. The
+  client turns off its own edge-swipe Back in fullscreen; ✕ and ⋯ stay.
+- Android: immersive mode with transient bars on swipe
+  (`BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`). System Back cannot be turned off;
+  it keeps following `back_v1`, so a game should open its pause menu and return
+  `true`.
+- Desktop: Esc is not taken from a focused page; the page handles it itself.
+
+Orientation:
+
+- `landscape` turns the Mini App screen to landscape and lets it follow the sensor
+  between the two landscape sides; `portrait` keeps it upright; `auto` follows the
+  device and the system rotation lock. A requested orientation applies even with
+  the system rotation lock on, only to the Mini App screen and only while it is in
+  front. Minimizing and closing return Link to its own orientation; restoring
+  turns the screen back before `restore` is sent.
+- Android: `requestedOrientation` of the Mini App activity (`SENSOR_LANDSCAPE`,
+  `SENSOR_PORTRAIT`, `UNSPECIFIED`). iOS: `supportedInterfaceOrientations` of the
+  Mini App view controller plus `requestGeometryUpdate`. On iPad split view and on
+  desktop it is a hint the host may ignore.
 
 ### Events, host → page
 

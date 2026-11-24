@@ -15,7 +15,7 @@ function page(properties = {}) {
   };
   return scope;
 }
-const zero = { headerHeight: 0, safeArea: { top: 0, right: 0, bottom: 0, left: 0 } };
+const zero = { headerHeight: 0, safeArea: { top: 0, right: 0, bottom: 0, left: 0 }, controls: { top: 0, right: 0, width: 0, height: 0 } };
 
 test('getInsets reads the host variables without init, rounding up', () => {
   const scope = page({
@@ -24,7 +24,7 @@ test('getInsets reads the host variables without init, rounding up', () => {
     '--link-miniapp-safe-area-left': '0px',
   });
   const insets = createSDK(scope).getInsets();
-  assert.deepEqual(insets, { headerHeight: 98, safeArea: { top: 54, right: 0, bottom: 34, left: 0 } });
+  assert.deepEqual(insets, { headerHeight: 98, safeArea: { top: 54, right: 0, bottom: 34, left: 0 }, controls: { top: 0, right: 0, width: 0, height: 0 } });
   assert.ok(Object.isFrozen(insets) && Object.isFrozen(insets.safeArea));
 });
 
@@ -69,4 +69,11 @@ test('the header preview never draws inside Link', () => {
   assert.equal(installHeaderPreview(scope), null);
   assert.equal(installHeaderPreview({}), null);
   assert.throws(() => installHeaderPreview(page(), { device: 'tablet' }), TypeError);
+});
+
+test('header_v1 hosts report the rectangle of the corner capsule', () => {
+  const sdk = createSDK(page({ '--link-miniapp-header-height': '52px', '--link-miniapp-safe-area-right': '47px',
+    '--link-miniapp-controls-top': '8px', '--link-miniapp-controls-right': '55px',
+    '--link-miniapp-controls-width': '76px', '--link-miniapp-controls-height': '32.4px' }));
+  assert.deepEqual(sdk.getInsets().controls, { top: 8, right: 55, width: 76, height: 33 });
 });

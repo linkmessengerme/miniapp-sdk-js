@@ -260,6 +260,7 @@ try {
   LinkMiniApp.onRestore(() => game.resume());
   LinkMiniApp.setHeaderStyle({ icons: 'light' }); // a dark page
   LinkMiniApp.setFullscreen(true);             // games: a small ⋯ | ✕ capsule
+  LinkMiniApp.setOrientation('landscape');     // games played sideways
 } catch (error) {
   if (error.code !== 'HEADER_NOT_SUPPORTED') throw error;
 }
@@ -274,8 +275,15 @@ try {
   menu. A title is plain text of 1 to 32 characters; an icon is one of the names
   in the `MenuIcon` type. The list replaces the previous one; `[]` removes it.
 - `minimize()` minimizes the app as ⌄ does.
-- `setFullscreen(true)` hides the title and the left button; `getInsets()` and the
-  CSS variables then report the smaller header.
+- `setFullscreen(true)` hides the title, the left button and the system bars; one
+  small ⋯ | ✕ capsule stays in the top right corner. Keep only that corner clear:
+  `getInsets().controls` (or `--link-miniapp-controls-top`, `-right`, `-width`,
+  `-height`) gives its rectangle.
+- `setOrientation('landscape' | 'portrait' | 'auto')` turns the Mini App screen.
+  Link returns to its own orientation when the app is minimized or closed. On
+  phones in landscape the Link header is always compact.
+- System Back still reaches `onBack()` in fullscreen: in a game, open the pause
+  menu there and return `true`.
 
 Settings last until the page is reloaded or navigates to another document. The
 user can always close and minimize the app, and the Link menu items always

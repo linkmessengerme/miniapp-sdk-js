@@ -81,6 +81,10 @@ export interface MiniAppSDK {
    * corner. The title and the left button are hidden; minimizing moves to the
    * menu. headerHeight from getInsets() changes with it. Default false. */
   setFullscreen(enabled: boolean): void;
+  /** 'landscape' or 'portrait' turns the Mini App screen and keeps it so while
+   * it is open; Link returns to its own orientation on minimize and close.
+   * 'auto' (default) follows the device. No effect on desktop. */
+  setOrientation(orientation: 'auto' | 'portrait' | 'landscape'): void;
 }
 
 export type BackButtonMode = 'auto' | 'back' | 'close' | 'hidden';
@@ -111,6 +115,7 @@ export interface HeaderStatePacket {
     menu_items: readonly MenuItem[];
     icons: HeaderStyle['icons'];
     fullscreen: boolean;
+    orientation: 'auto' | 'portrait' | 'landscape';
   }>;
 }
 /** Host event IDs are strictly increasing positive safe integers per document. */
@@ -134,6 +139,10 @@ export interface HeaderHostBridge {
 export interface MiniAppInsets {
   readonly headerHeight: number;
   readonly safeArea: Readonly<{ top: number; right: number; bottom: number; left: number }>;
+  /** The ⋯ capsule of the Link header: top and right are distances from the top
+   * and right edges of the WebView. All 0 on hosts without header_v1. In
+   * fullscreen, keep only this rectangle clear and use the rest of the top row. */
+  readonly controls: Readonly<{ top: number; right: number; width: number; height: number }>;
 }
 
 export interface BackContext {

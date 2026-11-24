@@ -46,6 +46,9 @@ async function consume() {
   await LinkMiniApp.minimize();
   LinkMiniApp.setHeaderStyle({ icons: 'light' });
   LinkMiniApp.setFullscreen(true);
+  LinkMiniApp.setOrientation('landscape');
+  const corner: number = LinkMiniApp.getInsets().controls.width;
+  void corner;
   // @ts-expect-error Unknown Back button mode.
   LinkMiniApp.setBackButton('none');
   // @ts-expect-error Only icons drawn by Link.
@@ -53,7 +56,7 @@ async function consume() {
   // @ts-expect-error The header colour itself is not set by the page.
   LinkMiniApp.setHeaderStyle({ icons: 'dark', color: '#000000' });
   const state: HeaderStatePacket = { version: 1, type: 'link-miniapp:header-state', document_id: 'document', revision: 1,
-    state: { back_button: 'auto', close_confirmation: false, menu_items: items, icons: 'auto', fullscreen: false } };
+    state: { back_button: 'auto', close_confirmation: false, menu_items: items, icons: 'auto', fullscreen: false, orientation: 'auto' } };
   const pick: HeaderEventPacket = { version: 1, type: 'link-miniapp:header-event', document_id: 'document',
     event_id: 1, event: 'menu_item', item_id: 'settings' };
   // @ts-expect-error A menu event names its item.

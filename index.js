@@ -236,6 +236,7 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
     onRestore: header.onRestore,
     setHeaderStyle: header.setHeaderStyle,
     setFullscreen: header.setFullscreen,
+    setOrientation: header.setOrientation,
     async minimize() {
       if (closed) throw new MiniAppError("ACCESS_REVOKED");
       header.ready();

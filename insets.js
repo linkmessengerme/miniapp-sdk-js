@@ -9,6 +9,11 @@ export const INSET_PROPERTIES = Object.freeze({
   right: '--link-miniapp-safe-area-right',
   bottom: '--link-miniapp-safe-area-bottom',
   left: '--link-miniapp-safe-area-left',
+  // header_v1: the rectangle of the ⋯ capsule, from the top and right edges.
+  controlsTop: '--link-miniapp-controls-top',
+  controlsRight: '--link-miniapp-controls-right',
+  controlsWidth: '--link-miniapp-controls-width',
+  controlsHeight: '--link-miniapp-controls-height',
 });
 
 function pixels(style, name) {
@@ -27,11 +32,14 @@ export function readInsets(scope) {
   return Object.freeze({
     headerHeight: value('headerHeight'),
     safeArea: Object.freeze({ top: value('top'), right: value('right'), bottom: value('bottom'), left: value('left') }),
+    controls: Object.freeze({ top: value('controlsTop'), right: value('controlsRight'),
+      width: value('controlsWidth'), height: value('controlsHeight') }),
   });
 }
 
 const key = insets => [insets.headerHeight, insets.safeArea.top, insets.safeArea.right,
-  insets.safeArea.bottom, insets.safeArea.left].join(' ');
+  insets.safeArea.bottom, insets.safeArea.left, insets.controls.top, insets.controls.right,
+  insets.controls.width, insets.controls.height].join(' ');
 
 // The host announces changes with INSETS_EVENT. A resize is checked as well, so a
 // listener also hears about a change the host made together with a window resize.

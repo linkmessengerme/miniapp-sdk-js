@@ -58,7 +58,7 @@ test('calls in one task produce one packet with the whole state and an increasin
   await flush();
   assert.equal(f.host.applied.length, 1);
   assert.deepEqual(f.host.applied[0], { version: 1, type: 'link-miniapp:header-state', document_id: f.documentId,
-    revision: 1, state: { back_button: 'close', close_confirmation: true, icons: 'light', fullscreen: false,
+    revision: 1, state: { back_button: 'close', close_confirmation: true, icons: 'light', fullscreen: false, orientation: 'auto',
       menu_items: [{ id: 'settings', title: 'Настройки игры', icon: 'settings' }, { id: 'rules', title: 'Правила' }] } });
   assert.ok(Object.isFrozen(f.host.applied[0]) && Object.isFrozen(f.host.applied[0].state));
   f.sdk.setFullscreen(true); await flush();
@@ -134,11 +134,15 @@ test('back button modes, header style and fullscreen; close and minimize stay re
   f.sdk.setFullscreen(true); await flush();
   assert.deepEqual(f.host.view(), { left: null, title: false, capsule: ['⋯', '✕'],
     menu: ['Обновить', 'Поделиться', 'Скопировать ссылку', 'О приложении', 'Пожаловаться', 'Закрыть приложение', 'Свернуть'] });
+  for (const orientation of ['landscape', 'portrait', 'auto']) {
+    f.sdk.setOrientation(orientation); await flush(); assert.equal(f.host.state.orientation, orientation);
+  }
   for (const icons of ['dark', 'light', 'auto']) { f.sdk.setHeaderStyle({ icons }); await flush(); assert.equal(f.host.state.icons, icons); }
   for (const call of [() => f.sdk.setBackButton('none'), () => f.sdk.setBackButton(undefined),
     () => f.sdk.setCloseConfirmation('yes'), () => f.sdk.setCloseConfirmation(1), () => f.sdk.setFullscreen(null),
     () => f.sdk.setHeaderStyle({ icons: 'red' }), () => f.sdk.setHeaderStyle({ icons: 'dark', color: '#000' }),
-    () => f.sdk.setHeaderStyle(null), () => f.sdk.setHeaderStyle('dark')]) {
+    () => f.sdk.setHeaderStyle(null), () => f.sdk.setHeaderStyle('dark'),
+    () => f.sdk.setOrientation('landscape-left'), () => f.sdk.setOrientation(90)]) {
     assert.throws(call, { code: 'INVALID_HEADER_OPTION' });
   }
 });
@@ -172,7 +176,7 @@ test('minimize and restore events; minimize() asks the host', async t => {
 test('old hosts and calls before init() throw HEADER_NOT_SUPPORTED and send nothing', async t => {
   const calls = sdk => [() => sdk.setBackButton('close'), () => sdk.setCloseConfirmation(true),
     () => sdk.setMenuItems([]), () => sdk.setHeaderStyle({ icons: 'dark' }), () => sdk.setFullscreen(true),
-    () => sdk.onMenuItem(() => {}), () => sdk.onMinimize(() => {}), () => sdk.onRestore(() => {})];
+    () => sdk.setOrientation('landscape'), () => sdk.onMenuItem(() => {}), () => sdk.onMinimize(() => {}), () => sdk.onRestore(() => {})];
   for (const capabilities of [[], ['back_v1'], ['payments_v1']]) {
     const f = await fixture(t, { capabilities });
     for (const call of calls(f.sdk)) assert.throws(call, { name: 'MiniAppError', code: 'HEADER_NOT_SUPPORTED' });
@@ -266,11 +270,12 @@ test('SDK.close stops the header; a failing transport revokes without leaking de
 test('the reference host rejects old revisions, foreign documents and broken state', async t => {
   const documentId = webcrypto.randomUUID(), host = headerHost({ documentId });
   const packet = (revision, state = {}) => ({ version: 1, type: 'link-miniapp:header-state', document_id: documentId,
-    revision, state: { back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', fullscreen: false, ...state } });
+    revision, state: { back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', fullscreen: false,
+      orientation: 'auto', ...state } });
   assert.equal(host.apply(packet(2, { fullscreen: true })), true);
   assert.equal(host.apply(packet(1, { fullscreen: false })), false);
   assert.equal(host.apply(packet(2, { fullscreen: false })), false);
-  for (const state of [{ back_button: 'none' }, { icons: '#000' }, { close_confirmation: 'yes' },
+  for (const state of [{ back_button: 'none' }, { icons: '#000' }, { close_confirmation: 'yes' }, { orientation: 'upside-down' },
     { menu_items: Array.from({ length: 6 }, (_, i) => ({ id: `i${i}`, title: 'x' })) }]) {
     assert.equal(host.apply(packet(3, state)), false);
   }

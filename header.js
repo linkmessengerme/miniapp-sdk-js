@@ -10,6 +10,7 @@ export const MAX_MENU_ITEMS = 5;
 export const MAX_MENU_TITLE = 32;
 export const BACK_BUTTON_MODES = Object.freeze(['auto', 'back', 'close', 'hidden']);
 export const HEADER_ICON_STYLES = Object.freeze(['auto', 'light', 'dark']);
+export const ORIENTATIONS = Object.freeze(['auto', 'portrait', 'landscape']);
 // Names of icons drawn by Link. Pages cannot pass images or URLs.
 export const MENU_ICONS = Object.freeze(['settings', 'info', 'help', 'star', 'bookmark', 'edit',
   'search', 'bell', 'user', 'gift', 'cart', 'list', 'chat', 'sound', 'mute', 'pause', 'play', 'restart']);
@@ -22,6 +23,7 @@ const documents = new WeakMap();
 
 export const defaultHeaderState = () => ({
   back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', fullscreen: false,
+  orientation: 'auto',
 });
 
 export function isHeaderEvent(packet, documentId) {
@@ -153,6 +155,9 @@ export function documentHeader(scope, failure) {
     },
     setFullscreen(enabled) {
       option(typeof enabled === 'boolean'); ready(); change({ fullscreen: enabled });
+    },
+    setOrientation(orientation) {
+      option(ORIENTATIONS.includes(orientation)); ready(); change({ orientation });
     },
     onMenuItem: listener => subscribe('menu_item', listener),
     onMinimize: listener => subscribe('minimize', listener),

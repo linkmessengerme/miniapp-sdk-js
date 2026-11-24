@@ -9,7 +9,9 @@
   menu, picked through `onMenuItem()`; `onMinimize()`, `onRestore()` and
   `minimize()` handle the ⌄ button; `setHeaderStyle({ icons })` sets the colour
   of the header buttons; `setFullscreen()` shrinks the header to a small corner
-  capsule for games.
+  capsule for games; `setOrientation()` asks for landscape or portrait.
+- `getInsets().controls` returns the rectangle of the ⋯ capsule, so a game in
+  fullscreen keeps only that corner clear. 0 on older clients.
 - The page cannot remove closing, minimizing or the Link menu items, and cannot
   set the title. On older clients every call throws `HEADER_NOT_SUPPORTED` and
   the header behaves as before.
