@@ -1,6 +1,6 @@
 import LinkMiniApp, { createSDK, type MiniAppUserInfo, type BackContext, type BackHandler,
   type BackEventPacket, type BackAckPacket, type BackHostBridge, type MiniAppInsets, type MenuItem,
-  type HeaderStatePacket, type HeaderEventPacket, type HeaderHostBridge } from "@link-apps/miniapp";
+  type HeaderStatePacket, type HeaderEventPacket, type HeaderHostBridge, type HeaderLayout, type HeaderRect } from "@link-apps/miniapp";
 import { installHeaderPreview, type HeaderPreview } from "@link-apps/miniapp/preview";
 import { installBrowserHost, type BrowserHostConnection } from "@link-apps/miniapp/browser-host";
 
@@ -48,6 +48,13 @@ async function consume() {
   LinkMiniApp.setFullscreen(true);
   LinkMiniApp.setOrientation('landscape');
   const corner: number = LinkMiniApp.getInsets().controls.width;
+  const layout: HeaderLayout = LinkMiniApp.getHeaderLayout();
+  const gap: HeaderRect | null = layout.free;
+  if (gap) void (gap.x + gap.width);
+  // @ts-expect-error Rectangles can be absent.
+  void layout.back.x;
+  const stopLayout: () => void = LinkMiniApp.onHeaderLayoutChange(next => { void next.controls; });
+  stopLayout();
   void corner;
   // @ts-expect-error Unknown Back button mode.
   LinkMiniApp.setBackButton('none');

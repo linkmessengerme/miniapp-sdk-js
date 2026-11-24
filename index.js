@@ -1,5 +1,5 @@
 import { documentBack } from './back.js';
-import { readInsets, subscribeInsets } from './insets.js';
+import { readInsets, subscribeInsets, readHeaderLayout, subscribeHeaderLayout } from './insets.js';
 import { documentHeader } from './header.js';
 
 export class MiniAppError extends Error {
@@ -227,6 +227,8 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
     // Layout values only; available before init(), after close() and outside Link.
     getInsets: () => readInsets(scope),
     onInsetsChange: listener => subscribeInsets(scope, listener, code => new MiniAppError(code)),
+    getHeaderLayout: () => readHeaderLayout(scope),
+    onHeaderLayoutChange: listener => subscribeHeaderLayout(scope, listener, code => new MiniAppError(code)),
     // header_v1: after init(), only on hosts that advertise it.
     setBackButton: header.setBackButton,
     setCloseConfirmation: header.setCloseConfirmation,

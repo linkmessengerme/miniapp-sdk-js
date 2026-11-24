@@ -12,11 +12,14 @@
   capsule for games; `setOrientation()` asks for landscape or portrait.
 - `getInsets().controls` returns the rectangle of the ⋯ capsule, so a game in
   fullscreen keeps only that corner clear. 0 on older clients.
+- `getHeaderLayout()` and `onHeaderLayoutChange()` return the rectangles of the
+  left button, the title and the capsule, and the free gap in the header row, so
+  a page can line up its own controls with the Link header. Null on older clients.
 - The page cannot remove closing, minimizing or the Link menu items, and cannot
   set the title. On older clients every call throws `HEADER_NOT_SUPPORTED` and
   the header behaves as before.
 - New error codes: `HEADER_NOT_SUPPORTED`, `INVALID_HEADER_OPTION`,
-  `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `MINIMIZE_NOT_AVAILABLE`.
+  `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `INVALID_LAYOUT_LISTENER`, `MINIMIZE_NOT_AVAILABLE`.
 - `docs/host-bridge.md` describes the packets and what clients must enforce.
   No Link client implements `header_v1` yet.
 

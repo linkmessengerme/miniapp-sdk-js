@@ -48,6 +48,14 @@ export interface MiniAppSDK {
   /** Called with new values after rotation, a window resize or a header change.
    * Not called when nothing changed. Returns an idempotent unsubscribe. */
   onInsetsChange(listener: (insets: MiniAppInsets) => void): () => void;
+  /** Where the Link header controls are, to place the page's own controls next
+   * to them. Works without init(); on hosts without header_v1 every rectangle is
+   * null. Touches on these rectangles always go to Link. */
+  getHeaderLayout(): HeaderLayout;
+  /** Called with new values after rotation, a window resize, fullscreen or a
+   * change of the left button. Not called when nothing changed. Returns an
+   * idempotent unsubscribe. */
+  onHeaderLayoutChange(listener: (layout: HeaderLayout) => void): () => void;
 
   // header_v1. Every method below works after init() on a host that advertises
   // header_v1 and throws MiniAppError('HEADER_NOT_SUPPORTED') otherwise; the
@@ -143,6 +151,28 @@ export interface MiniAppInsets {
    * and right edges of the WebView. All 0 on hosts without header_v1. In
    * fullscreen, keep only this rectangle clear and use the rest of the top row. */
   readonly controls: Readonly<{ top: number; right: number; width: number; height: number }>;
+}
+
+/** CSS pixels from the top left corner of the page. */
+export interface HeaderRect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+export interface HeaderLayout {
+  /** Same as getInsets().headerHeight. */
+  readonly height: number;
+  /** The ✕ / ‹ button; null when hidden, in fullscreen or on older hosts. */
+  readonly back: HeaderRect | null;
+  /** The capsule with the app icon and name; null in fullscreen or on older hosts. */
+  readonly title: HeaderRect | null;
+  /** The ⋯ | ⌄ or ⋯ | ✕ capsule; null only on older hosts. */
+  readonly controls: HeaderRect | null;
+  /** The gap in the header row between the left elements and the capsule, with
+   * 8 px margins; null when narrower than 48 px. The page may put its own
+   * controls here. */
+  readonly free: HeaderRect | null;
 }
 
 export interface BackContext {

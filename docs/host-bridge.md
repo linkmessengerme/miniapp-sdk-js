@@ -495,7 +495,24 @@ in every layout:
 | `--link-miniapp-controls-width` | Width of the capsule. |
 | `--link-miniapp-controls-height` | Height of the capsule. |
 
-`getInsets().controls` returns them; they are 0 on older hosts. The
+The host also reports the other two header controls, measured from the top and
+left edges, and leaves a group undefined while that element is not shown:
+
+| Variables | Element |
+| --- | --- |
+| `--link-miniapp-back-left`, `-top`, `-width`, `-height` | The ✕ / ‹ button. Undefined when hidden and in fullscreen. |
+| `--link-miniapp-title-left`, `-top`, `-width`, `-height` | The capsule with the app icon and name. Undefined in fullscreen. |
+
+Round positions down and sizes up, so each rectangle covers its control. Touches
+inside these rectangles always go to Link, whatever the page draws there.
+
+`getInsets().controls` returns the capsule variables; they are 0 on older hosts.
+`getHeaderLayout()` returns all three controls as `{ x, y, width, height }` from
+the top left corner of the page, plus `free`: the gap in the header row between
+the left controls (or the left safe area) and the capsule, with 8 px margins, or
+null when it is narrower than 48 px or when the capsule sits in the camera band
+(fullscreen portrait), where the notch interrupts the row. `onHeaderLayoutChange()`
+follows `linkminiapp:insets` and window resizes. The
 `--link-miniapp-header-height` keeps its meaning: the lowest point of host UI at
 the top, never less than the top safe area. Every change of layout (rotation,
 fullscreen on or off, compact header) updates all variables and dispatches

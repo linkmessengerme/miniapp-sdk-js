@@ -282,6 +282,20 @@ try {
 - `setOrientation('landscape' | 'portrait' | 'auto')` turns the Mini App screen.
   Link returns to its own orientation when the app is minimized or closed. On
   phones in landscape the Link header is always compact.
+- `getHeaderLayout()` returns where the Link controls are, in CSS pixels from the
+  top left corner: `back` (✕ / ‹), `title`, `controls` (the capsule) and `free`, the
+  gap in the header row that your own controls may use. A missing element is
+  `null`. `onHeaderLayoutChange()` reports changes. Both work without `init()`.
+
+  ```js
+  const place = ({ free, controls }) => {
+    if (free) Object.assign(search.style, { left: `${free.x}px`, top: `${free.y}px`, width: `${free.width}px`, height: `${free.height}px` });
+    else if (controls) score.style.top = `${controls.y + controls.height + 8}px`;
+  };
+  place(LinkMiniApp.getHeaderLayout());
+  LinkMiniApp.onHeaderLayoutChange(place);
+  ```
+
 - System Back still reaches `onBack()` in fullscreen: in a game, open the pause
   menu there and return `true`.
 
@@ -308,7 +322,7 @@ Direct calls to the browser adapter may still reject with an ordinary `Error`.
 | `INVALID_BACK_HANDLER` | Pass a function returning a boolean to `onBack` |
 | `INVALID_INSETS_LISTENER` | Pass a function to `onInsetsChange` |
 | `HEADER_NOT_SUPPORTED` | Initialize first; header control requires a `header_v1` client |
-| `INVALID_HEADER_OPTION`, `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER` | Correct the arguments of the header call |
+| `INVALID_HEADER_OPTION`, `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `INVALID_LAYOUT_LISTENER` | Correct the arguments of the header call |
 | `MINIMIZE_NOT_AVAILABLE` | The app is already minimized or busy; nothing to do |
 | `TRANSPORT`, `API_TIMEOUT`, `SERVICE_UNAVAILABLE` | Show a network error and let the user retry |
 | `INVALID_CONFIG`, `INVALID_HOST_RESPONSE`, `INVALID_API_RESPONSE` | Correct the integration; discard the response |

@@ -11,8 +11,9 @@ assert.equal(typeof LinkMiniApp.getUserInfo, 'function');
 assert.equal(typeof LinkMiniApp.onBack, 'function');
 assert.equal(LinkMiniApp.pay, undefined);
 for (const method of ['setBackButton', 'setCloseConfirmation', 'setMenuItems', 'onMenuItem', 'onMinimize',
-  'onRestore', 'minimize', 'setHeaderStyle', 'setFullscreen', 'setOrientation']) assert.equal(typeof LinkMiniApp[method], 'function');
+  'onRestore', 'minimize', 'setHeaderStyle', 'setFullscreen', 'setOrientation', 'getHeaderLayout', 'onHeaderLayoutChange']) assert.equal(typeof LinkMiniApp[method], 'function');
 assert.throws(() => createSDK({}).setBackButton('close'), { code: 'HEADER_NOT_SUPPORTED' });
+assert.deepEqual(createSDK({}).getHeaderLayout(), { height: 0, back: null, title: null, controls: null, free: null });
 assert.deepEqual(createSDK({}).getInsets(), { headerHeight: 0, safeArea: { top: 0, right: 0, bottom: 0, left: 0 }, controls: { top: 0, right: 0, width: 0, height: 0 } });
 assert.equal(installHeaderPreview({}), null);
 assert.ok(existsSync(createRequire(import.meta.url).resolve('@link-apps/miniapp/ui.css')));
