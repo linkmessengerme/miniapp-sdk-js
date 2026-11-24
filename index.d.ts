@@ -160,7 +160,7 @@ export interface DeviceHostBridge {
 
 export type BackButtonMode = 'auto' | 'back' | 'close' | 'hidden';
 export type MenuIcon = 'settings' | 'info' | 'help' | 'star' | 'bookmark' | 'edit' | 'search' |
-  'bell' | 'user' | 'gift' | 'cart' | 'list' | 'chat' | 'sound' | 'mute' | 'pause' | 'play' | 'restart';
+  'bell' | 'user' | 'gift' | 'cart' | 'list' | 'chat' | 'sound' | 'mute' | 'pause' | 'play' | 'restart' | 'rules';
 export interface MenuItem {
   /** 1 to 32 characters: a-z, 0-9, '_' and '-'. Unique within the list. */
   readonly id: string;

@@ -38,7 +38,7 @@ async function consume() {
   void top;
   LinkMiniApp.setBackButton('hidden');
   LinkMiniApp.setCloseConfirmation(true);
-  const items: MenuItem[] = [{ id: 'settings', title: 'Settings', icon: 'settings' }, { id: 'rules', title: 'Rules' }];
+  const items: MenuItem[] = [{ id: 'settings', title: 'Settings', icon: 'settings' }, { id: 'rules', title: 'Rules', icon: 'rules' }];
   LinkMiniApp.setMenuItems(items);
   const stopMenu: () => void = LinkMiniApp.onMenuItem((id: string) => { void id; });
   stopMenu();

@@ -6,7 +6,7 @@ export const SYSTEM_MENU = Object.freeze(['Обновить', 'Поделить�
 const MODES = ['auto', 'back', 'close', 'hidden'];
 const ICONS = ['auto', 'light', 'dark'];
 const MENU_ICONS = ['settings', 'info', 'help', 'star', 'bookmark', 'edit', 'search', 'bell', 'user',
-  'gift', 'cart', 'list', 'chat', 'sound', 'mute', 'pause', 'play', 'restart'];
+  'gift', 'cart', 'list', 'chat', 'sound', 'mute', 'pause', 'play', 'restart', 'rules'];
 const ORIENTATIONS = ['auto', 'portrait', 'landscape'];
 const TITLES = ['shown', 'hidden'];
 const DEFAULTS = Object.freeze({ back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', title: 'shown', fullscreen: false, orientation: 'auto', sound_control: false });

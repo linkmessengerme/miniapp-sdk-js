@@ -17,7 +17,7 @@ export const HEADER_TITLE_MODES = Object.freeze(['shown', 'hidden']);
 export const ORIENTATIONS = Object.freeze(['auto', 'portrait', 'landscape']);
 // Names of icons drawn by Link. Pages cannot pass images or URLs.
 export const MENU_ICONS = Object.freeze(['settings', 'info', 'help', 'star', 'bookmark', 'edit',
-  'search', 'bell', 'user', 'gift', 'cart', 'list', 'chat', 'sound', 'mute', 'pause', 'play', 'restart']);
+  'search', 'bell', 'user', 'gift', 'cart', 'list', 'chat', 'sound', 'mute', 'pause', 'play', 'restart', 'rules']);
 export const HEADER_EVENTS = Object.freeze(['menu_item', 'minimize', 'restore', 'pause', 'resume', 'sound', 'closing']);
 // Why the page is not in front: minimized, Link in the background, screen locked,
 // an interruption such as a call or Siri, or a Link overlay (menu, dialog, sheet).

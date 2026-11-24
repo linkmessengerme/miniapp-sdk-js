@@ -461,7 +461,33 @@ keeping the previous state; unknown extra fields are ignored. Packets larger tha
 A menu item has `id` (`^[a-z0-9_-]{1,32}$`, unique), `title` (plain text, 1–32
 grapheme clusters after trimming, no control, line-separator or bidirectional
 override characters) and an optional `icon` from the list in `header.js`
-(`MENU_ICONS`). Draw an unknown icon name as no icon. Render titles as plain
+(`MENU_ICONS`). Draw an unknown icon name as no icon. Draw every name with the
+Link icon below, in the same outline style, size and colour as the Link menu
+items; pages never supply images.
+
+| Name | Android drawable |
+| --- | --- |
+| `settings` | `ic_settings_24` |
+| `info` | `ic_info_tinted_24` |
+| `help` | `ic_help_24` |
+| `star` | `ic_fluent_star_24_regular` |
+| `bookmark` | `ic_post_bookmark_regular` |
+| `edit` | `ic_compose_outline_24` |
+| `search` | `ic_search_24` |
+| `bell` | `ic_bell_24` |
+| `user` | `ic_fluent_person_24_regular` |
+| `gift` | `ic_gift_24` |
+| `cart` | `ic_fluent_cart_24_regular` |
+| `list` | `ic_list_20` |
+| `chat` | `ic_fluent_chat_empty_24_regular` |
+| `sound` | `ic_fluent_speaker_2_24_regular` |
+| `mute` | `ic_fluent_speaker_mute_24_regular` |
+| `pause` | `ic_fluent_pause_24_filled` (filled, like all Link playback icons) |
+| `play` | `ic_fluent_play_24_filled` (filled) |
+| `restart` | `ic_retry_24` |
+| `rules` | `ic_fluent_document_24_regular` |
+
+iOS and desktop use the same drawings. Render titles as plain
 text. Drop an item whose title equals a Link menu item in the current language,
 ignoring case.
 
