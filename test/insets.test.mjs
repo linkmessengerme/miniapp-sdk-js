@@ -135,3 +135,10 @@ test('onHeaderLayoutChange reports a changed layout once and stops after unsubsc
   assert.equal(seen.length, 2);
   assert.throws(() => sdk.onHeaderLayoutChange(null), { code: 'INVALID_LAYOUT_LISTENER' });
 });
+
+test('portrait app with the title hidden: the header row becomes free', () => {
+  const layout = createSDK(sized({ '--link-miniapp-header-height': '112px', '--link-miniapp-safe-area-top': '54px',
+    ...vars('back', [12, 61, 44, 44]), ...capsule([61, 12, 89, 44]) }, 390)).getHeaderLayout();
+  assert.equal(layout.title, null);
+  assert.deepEqual(layout.free, { x: 64, y: 61, width: 217, height: 44 });
+});

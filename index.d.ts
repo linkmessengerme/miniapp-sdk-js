@@ -82,8 +82,11 @@ export interface MiniAppSDK {
   onRestore(listener: () => void): () => void;
   /** Minimizes the app as the ⌄ button does. */
   minimize(): Promise<void>;
-  /** Colour of the header buttons and the status bar drawn over the page.
-   * 'light' for a dark page, 'dark' for a light page. Default 'auto'. */
+  /** icons: colour of the header buttons and the status bar drawn over the page,
+   * 'light' for a dark page, 'dark' for a light page; default 'auto'.
+   * title: 'hidden' removes the capsule with the app icon and name, freeing the
+   * header row; Link then shows the name at the top of the ⋯ menu. Default 'shown'.
+   * Only the keys given change. */
   setHeaderStyle(style: HeaderStyle): void;
   /** For games: the header shrinks to a small ⋯ | ✕ capsule in the top right
    * corner. The title and the left button are hidden; minimizing moves to the
@@ -106,9 +109,8 @@ export interface MenuItem {
   /** One of the icons drawn by Link; no images or URLs. */
   readonly icon?: MenuIcon;
 }
-export interface HeaderStyle {
-  readonly icons: 'auto' | 'light' | 'dark';
-}
+export type HeaderStyle = Readonly<{ icons?: 'auto' | 'light' | 'dark'; title?: 'shown' | 'hidden' }> &
+  ({ readonly icons: 'auto' | 'light' | 'dark' } | { readonly title: 'shown' | 'hidden' });
 
 /** The whole header state; the host applies the highest revision it has seen. */
 export interface HeaderStatePacket {
@@ -121,7 +123,8 @@ export interface HeaderStatePacket {
     back_button: BackButtonMode;
     close_confirmation: boolean;
     menu_items: readonly MenuItem[];
-    icons: HeaderStyle['icons'];
+    icons: 'auto' | 'light' | 'dark';
+    title: 'shown' | 'hidden';
     fullscreen: boolean;
     orientation: 'auto' | 'portrait' | 'landscape';
   }>;
@@ -165,7 +168,7 @@ export interface HeaderLayout {
   readonly height: number;
   /** The ✕ / ‹ button; null when hidden, in fullscreen or on older hosts. */
   readonly back: HeaderRect | null;
-  /** The capsule with the app icon and name; null in fullscreen or on older hosts. */
+  /** The capsule with the app icon and name; null when hidden, in fullscreen or on older hosts. */
   readonly title: HeaderRect | null;
   /** The ⋯ | ⌄ or ⋯ | ✕ capsule; null only on older hosts. */
   readonly controls: HeaderRect | null;

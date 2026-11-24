@@ -8,7 +8,8 @@ const ICONS = ['auto', 'light', 'dark'];
 const MENU_ICONS = ['settings', 'info', 'help', 'star', 'bookmark', 'edit', 'search', 'bell', 'user',
   'gift', 'cart', 'list', 'chat', 'sound', 'mute', 'pause', 'play', 'restart'];
 const ORIENTATIONS = ['auto', 'portrait', 'landscape'];
-const DEFAULTS = Object.freeze({ back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', fullscreen: false, orientation: 'auto' });
+const TITLES = ['shown', 'hidden'];
+const DEFAULTS = Object.freeze({ back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', title: 'shown', fullscreen: false, orientation: 'auto' });
 
 function validItems(items) {
   if (!Array.isArray(items) || items.length > 5) return false;
@@ -44,7 +45,7 @@ export function headerHost({ documentId, send = () => {}, close = () => {}, mini
           packet.document_id !== documentId || !Number.isSafeInteger(packet.revision) ||
           packet.revision <= revision || !next || typeof next !== 'object' ||
           !MODES.includes(next.back_button) || typeof next.close_confirmation !== 'boolean' ||
-          !ICONS.includes(next.icons) || typeof next.fullscreen !== 'boolean' || !ORIENTATIONS.includes(next.orientation) ||
+          !ICONS.includes(next.icons) || !TITLES.includes(next.title) || typeof next.fullscreen !== 'boolean' || !ORIENTATIONS.includes(next.orientation) ||
           !validItems(next.menu_items)) return false;
       revision = packet.revision;
       // Unknown icons are drawn without an icon; items that look like Link items are dropped.
@@ -59,9 +60,11 @@ export function headerHost({ documentId, send = () => {}, close = () => {}, mini
     view() {
       const own = state.menu_items.map(item => item.title);
       const menu = [...own, ...SYSTEM_MENU, ...(state.fullscreen ? ['Свернуть'] : [])];
-      if (state.fullscreen) return { left: null, title: false, capsule: ['⋯', '✕'], menu };
+      // Without the title capsule the name and icon head the ⋯ menu, so the app is always identified.
+      const identity = state.fullscreen || state.title === 'hidden' ? ['«App» · мини-приложение'] : [];
+      if (state.fullscreen) return { left: null, title: false, capsule: ['⋯', '✕'], menu: [...identity, ...menu] };
       const left = state.back_button === 'hidden' ? null : state.back_button === 'auto' ? 'auto' : state.back_button;
-      return { left, title: true, capsule: ['⋯', '⌄'], menu };
+      return { left, title: state.title === 'shown', capsule: ['⋯', '⌄'], menu: [...identity, ...menu] };
     },
     tapMenu(title) {
       const item = state.menu_items.find(entry => entry.title === title);

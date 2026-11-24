@@ -10,6 +10,7 @@ export const MAX_MENU_ITEMS = 5;
 export const MAX_MENU_TITLE = 32;
 export const BACK_BUTTON_MODES = Object.freeze(['auto', 'back', 'close', 'hidden']);
 export const HEADER_ICON_STYLES = Object.freeze(['auto', 'light', 'dark']);
+export const HEADER_TITLE_MODES = Object.freeze(['shown', 'hidden']);
 export const ORIENTATIONS = Object.freeze(['auto', 'portrait', 'landscape']);
 // Names of icons drawn by Link. Pages cannot pass images or URLs.
 export const MENU_ICONS = Object.freeze(['settings', 'info', 'help', 'star', 'bookmark', 'edit',
@@ -22,7 +23,7 @@ const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-
 const documents = new WeakMap();
 
 export const defaultHeaderState = () => ({
-  back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', fullscreen: false,
+  back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', title: 'shown', fullscreen: false,
   orientation: 'auto',
 });
 
@@ -149,9 +150,13 @@ export function documentHeader(scope, failure) {
       const wire = menuItems(items, failure); ready(); change({ menu_items: wire });
     },
     setHeaderStyle(style) {
-      option(style !== null && typeof style === 'object' && !Array.isArray(style) &&
-        Object.keys(style).every(key => key === 'icons') && HEADER_ICON_STYLES.includes(style.icons));
-      ready(); change({ icons: style.icons });
+      // Only the keys given change; the others keep their current value.
+      const keys = style !== null && typeof style === 'object' && !Array.isArray(style) ? Object.keys(style) : [];
+      option(keys.length > 0 && keys.every(key => key === 'icons' || key === 'title') &&
+        (style.icons === undefined || HEADER_ICON_STYLES.includes(style.icons)) &&
+        (style.title === undefined || HEADER_TITLE_MODES.includes(style.title)));
+      ready();
+      change({ ...(style.icons !== undefined && { icons: style.icons }), ...(style.title !== undefined && { title: style.title }) });
     },
     setFullscreen(enabled) {
       option(typeof enabled === 'boolean'); ready(); change({ fullscreen: enabled });

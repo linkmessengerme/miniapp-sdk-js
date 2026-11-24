@@ -400,8 +400,10 @@ client decides how to draw it and enforces the rules below itself.
   in every state, and in the corner capsule in fullscreen. Minimize stays as ⌄ in
   the capsule, or as a menu item in fullscreen.
 - Link menu items always remain, after the page's own items, in their own group.
-- The title, the app icon, the verified mark and the test label are not set by
-  the page.
+- The page cannot change the title, the app icon, the verified mark or the test
+  label. It may hide the title capsule as a whole; Link then shows the icon and
+  name as the first, non-interactive row of the ⋯ menu, and for a Test launch
+  keeps a small amber "тест" label next to the capsule.
 - The close confirmation is a Link dialog with fixed text. Close is always one of
   its buttons. It never appears for a close the user did not start.
 - Settings belong to one document. A full navigation, a reload, a new document ID,
@@ -430,7 +432,7 @@ hosts keep their behaviour.
 
 ```json
 {"version":1,"type":"link-miniapp:header-state","document_id":"<document-uuid>","revision":3,
- "state":{"back_button":"auto","close_confirmation":false,"icons":"auto","fullscreen":false,
+ "state":{"back_button":"auto","close_confirmation":false,"icons":"auto","title":"shown","fullscreen":false,
           "orientation":"auto","menu_items":[{"id":"settings","title":"Настройки","icon":"settings"}]}}
 ```
 
@@ -450,6 +452,7 @@ keeping the previous state; unknown extra fields are ignored. Packets larger tha
 | `close_confirmation` | boolean | `false` |
 | `menu_items` | 0–5 items | `[]` |
 | `icons` | `auto`, `light`, `dark` | `auto` |
+| `title` | `shown`, `hidden` | `shown` |
 | `fullscreen` | boolean | `false` |
 | `orientation` | `auto`, `portrait`, `landscape` | `auto` |
 
@@ -477,6 +480,10 @@ ignoring case.
 - `icons` sets the ink of the header controls, the title and the status bar over
   the page: `light` for a dark page, `dark` for a light page. `auto` keeps the
   client's own choice. The page cannot set the header colour itself.
+- `title: hidden` removes the capsule with the icon and name. The header row keeps
+  its height; the left button and the capsule stay where they were, and the gap
+  between them is reported as `free` in `getHeaderLayout()`. The ⋯ menu starts with
+  the icon and name. `setHeaderStyle()` changes only the keys it is given.
 - `fullscreen` and `orientation` follow the layout rules below.
 
 ### Layout: apps and games, portrait and landscape
@@ -501,7 +508,7 @@ left edges, and leaves a group undefined while that element is not shown:
 | Variables | Element |
 | --- | --- |
 | `--link-miniapp-back-left`, `-top`, `-width`, `-height` | The ✕ / ‹ button. Undefined when hidden and in fullscreen. |
-| `--link-miniapp-title-left`, `-top`, `-width`, `-height` | The capsule with the app icon and name. Undefined in fullscreen. |
+| `--link-miniapp-title-left`, `-top`, `-width`, `-height` | The capsule with the app icon and name. Undefined when hidden and in fullscreen. |
 
 Round positions down and sizes up, so each rectangle covers its control. Touches
 inside these rectangles always go to Link, whatever the page draws there.

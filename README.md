@@ -282,6 +282,10 @@ try {
 - `setOrientation('landscape' | 'portrait' | 'auto')` turns the Mini App screen.
   Link returns to its own orientation when the app is minimized or closed. On
   phones in landscape the Link header is always compact.
+- `setHeaderStyle({ title: 'hidden' })` removes the capsule with your app's icon
+  and name, so the header row is yours: `getHeaderLayout().free` then spans from
+  the left button to the ⋯ capsule. Link shows the name at the top of the ⋯ menu.
+  `setHeaderStyle()` changes only the keys you pass.
 - `getHeaderLayout()` returns where the Link controls are, in CSS pixels from the
   top left corner: `back` (✕ / ‹), `title`, `controls` (the capsule) and `free`, the
   gap in the header row that your own controls may use. A missing element is
