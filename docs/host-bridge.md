@@ -386,3 +386,121 @@ classes for both patterns, `link-miniapp-page` and `link-miniapp-header` in
   rounded up.
 - Live update plus `linkminiapp:insets` on every change, and nothing when unchanged.
 - The same behaviour on iOS, Android and Desktop, for every Mini App.
+
+## Header extension (unreleased)
+
+`header_v1` lets the page ask the client to change its header: the left button,
+a confirmation before closing, own items in the ⋯ menu, minimize events, the
+colour of the header buttons and a compact header for games. The page asks; the
+client decides how to draw it and enforces the rules below itself.
+
+### Rules the page cannot change
+
+- The user can always close and minimize the Mini App. Close stays in the ⋯ menu
+  in every state, and in the corner capsule in fullscreen. Minimize stays as ⌄ in
+  the capsule, or as a menu item in fullscreen.
+- Link menu items always remain, after the page's own items, in their own group.
+- The title, the app icon, the verified mark and the test label are not set by
+  the page.
+- The close confirmation is a Link dialog with fixed text. Close is always one of
+  its buttons. It never appears for a close the user did not start.
+- Settings belong to one document. A full navigation, a reload, a new document ID,
+  revocation or closing returns the header to the defaults.
+- Only after a successful `init()`, only in the authorized main document. A host
+  that advertises `header_v1` also implements `back_v1`.
+
+### Native adapter surface
+
+```ts
+interface HeaderHostBridge {
+  readonly capabilities: readonly string[]; // includes 'header_v1' and 'back_v1'
+  readonly documentId: string;               // the same document ID as back_v1
+  setHeaderState(packet: HeaderStatePacket): void;
+  subscribeHeader(listener: (event: HeaderEventPacket) => void): () => void;
+}
+```
+
+The request method `minimize` (same envelope as `close`) minimizes the app and
+returns an empty result, or `error: { code: 'MINIMIZE_NOT_AVAILABLE' }` when the
+app is already minimized, closing, or behind a Link dialog or checkout. Without
+the capability the SDK throws `HEADER_NOT_SUPPORTED` and sends nothing, so older
+hosts keep their behaviour.
+
+### Header state, page → host
+
+```json
+{"version":1,"type":"link-miniapp:header-state","document_id":"<document-uuid>","revision":3,
+ "state":{"back_button":"auto","close_confirmation":false,"icons":"auto","fullscreen":false,
+          "menu_items":[{"id":"settings","title":"Настройки","icon":"settings"}]}}
+```
+
+The packet always carries the whole state. `revision` is a strictly increasing
+positive safe integer per document, chosen by the SDK; the host applies a packet
+only if its revision is higher than the last applied one, and otherwise ignores
+it. The SDK sends at most one packet per task. The host may apply at most one per
+frame and keeps the last.
+
+The host validates every field and ignores the whole packet when one is invalid,
+keeping the previous state; unknown extra fields are ignored. Packets larger than
+8 KiB are invalid.
+
+| Field | Values | Default |
+| --- | --- | --- |
+| `back_button` | `auto`, `back`, `close`, `hidden` | `auto` |
+| `close_confirmation` | boolean | `false` |
+| `menu_items` | 0–5 items | `[]` |
+| `icons` | `auto`, `light`, `dark` | `auto` |
+| `fullscreen` | boolean | `false` |
+
+A menu item has `id` (`^[a-z0-9_-]{1,32}$`, unique), `title` (plain text, 1–32
+grapheme clusters after trimming, no control, line-separator or bidirectional
+override characters) and an optional `icon` from the list in `header.js`
+(`MENU_ICONS`). Draw an unknown icon name as no icon. Render titles as plain
+text. Drop an item whose title equals a Link menu item in the current language,
+ignoring case.
+
+### Behaviour
+
+- `back_button: auto` is today's behaviour: ‹ when the page can go back, ✕
+  otherwise. `back` always shows ‹ and `close` always shows ✕. `hidden` shows no
+  left button. A tap on ‹ is a Back gesture under `back_v1`; a tap on ✕ is a user
+  close. System Back and edge swipes keep following `back_v1` in every mode.
+- `close_confirmation: true` asks before closes the user starts: ✕, the menu's
+  Close item, ✕ on the minimized bar, a close gesture, and a Back gesture whose
+  ack is `close`. It does not ask for `LinkMiniApp.close()`, minimize, revocation,
+  sign-out, account switch or a forced close by Link. When a fourth minimized app
+  must close another, prefer one without confirmation; otherwise close the oldest
+  as before.
+- `menu_items` appear first in the ⋯ menu, in their own group, followed by the Link
+  groups. A tap closes the menu and sends `menu_item`.
+- `icons` sets the ink of the header controls, the title and the status bar over
+  the page: `light` for a dark page, `dark` for a light page. `auto` keeps the
+  client's own choice. The page cannot set the header colour itself.
+- `fullscreen: true` hides the left button and the title. The host draws one small
+  capsule ⋯ | ✕ in the top right corner, below the status bar, and adds Minimize
+  to the ⋯ menu. The status bar stays. Update `--link-miniapp-header-height` to
+  the bottom edge of that capsule and dispatch `linkminiapp:insets` in the same
+  frame. On desktop it changes the header inside the Mini App area, not the
+  operating-system window.
+
+### Events, host → page
+
+```json
+{"version":1,"type":"link-miniapp:header-event","document_id":"<document-uuid>","event_id":7,"event":"menu_item","item_id":"settings"}
+{"version":1,"type":"link-miniapp:header-event","document_id":"<document-uuid>","event_id":8,"event":"minimize"}
+{"version":1,"type":"link-miniapp:header-event","document_id":"<document-uuid>","event_id":9,"event":"restore"}
+```
+
+`event_id` is a strictly increasing positive safe integer per document, separate
+from Back event IDs. The SDK drops repeated and older IDs, and a `menu_item` whose
+item the page has since removed. No acknowledgement is sent: the page cannot delay
+or cancel a minimize. Send `minimize` once the app has been minimized by ⌄, the
+menu or `minimize()`, and `restore` when it is visible again. Moving Link itself
+to the background is not a minimize; the page sees `visibilitychange` for that.
+
+The SDK subscribes once after a successful `init()` when the adapter advertises
+`header_v1` and has both methods. Teardown, bridge, origin, document or identity
+replacement and `SDK.close()` stop the SDK side, including a packet not yet sent.
+
+[`test/header-host.mjs`](../test/header-host.mjs) is a synthetic host with these
+checks. It is an executable contract example, not a client implementation.

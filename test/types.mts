@@ -1,5 +1,6 @@
 import LinkMiniApp, { createSDK, type MiniAppUserInfo, type BackContext, type BackHandler,
-  type BackEventPacket, type BackAckPacket, type BackHostBridge, type MiniAppInsets } from "@link-apps/miniapp";
+  type BackEventPacket, type BackAckPacket, type BackHostBridge, type MiniAppInsets, type MenuItem,
+  type HeaderStatePacket, type HeaderEventPacket, type HeaderHostBridge } from "@link-apps/miniapp";
 import { installHeaderPreview, type HeaderPreview } from "@link-apps/miniapp/preview";
 import { installBrowserHost, type BrowserHostConnection } from "@link-apps/miniapp/browser-host";
 
@@ -35,6 +36,32 @@ async function consume() {
   // @ts-expect-error Only phone and desktop are previewed.
   installHeaderPreview(window, { device: 'tablet' });
   void top;
+  LinkMiniApp.setBackButton('hidden');
+  LinkMiniApp.setCloseConfirmation(true);
+  const items: MenuItem[] = [{ id: 'settings', title: 'Settings', icon: 'settings' }, { id: 'rules', title: 'Rules' }];
+  LinkMiniApp.setMenuItems(items);
+  const stopMenu: () => void = LinkMiniApp.onMenuItem((id: string) => { void id; });
+  stopMenu();
+  LinkMiniApp.onMinimize(() => {}); LinkMiniApp.onRestore(() => {});
+  await LinkMiniApp.minimize();
+  LinkMiniApp.setHeaderStyle({ icons: 'light' });
+  LinkMiniApp.setFullscreen(true);
+  // @ts-expect-error Unknown Back button mode.
+  LinkMiniApp.setBackButton('none');
+  // @ts-expect-error Only icons drawn by Link.
+  LinkMiniApp.setMenuItems([{ id: 'x', title: 'X', icon: 'https://example.com/x.png' }]);
+  // @ts-expect-error The header colour itself is not set by the page.
+  LinkMiniApp.setHeaderStyle({ icons: 'dark', color: '#000000' });
+  const state: HeaderStatePacket = { version: 1, type: 'link-miniapp:header-state', document_id: 'document', revision: 1,
+    state: { back_button: 'auto', close_confirmation: false, menu_items: items, icons: 'auto', fullscreen: false } };
+  const pick: HeaderEventPacket = { version: 1, type: 'link-miniapp:header-event', document_id: 'document',
+    event_id: 1, event: 'menu_item', item_id: 'settings' };
+  // @ts-expect-error A menu event names its item.
+  const broken: HeaderEventPacket = { version: 1, type: 'link-miniapp:header-event', document_id: 'document', event_id: 2, event: 'menu_item' };
+  const headerBridge: HeaderHostBridge = { documentId: 'document', capabilities: ['back_v1', 'header_v1'],
+    setHeaderState(packet) { void packet.revision; }, subscribeHeader(listener) { listener(pick); return () => {}; } };
+  headerBridge.setHeaderState(state);
+  void broken;
   // @ts-expect-error Scopes belong to consent/configuration, not UserInfo.
   await LinkMiniApp.getUserInfo({ scopes: ["phone"] });
   // @ts-expect-error Returned data is immutable.

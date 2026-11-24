@@ -48,6 +48,85 @@ export interface MiniAppSDK {
   /** Called with new values after rotation, a window resize or a header change.
    * Not called when nothing changed. Returns an idempotent unsubscribe. */
   onInsetsChange(listener: (insets: MiniAppInsets) => void): () => void;
+
+  // header_v1. Every method below works after init() on a host that advertises
+  // header_v1 and throws MiniAppError('HEADER_NOT_SUPPORTED') otherwise; the
+  // header then keeps its usual behaviour. Settings last until the document
+  // is replaced; a reload or navigation starts again from the defaults.
+
+  /** Left header button. 'auto' (default): Back when the page has somewhere to go
+   * back to, Close otherwise. 'hidden' hides the button; closing stays available
+   * in the ⋯ menu. A Back tap is delivered through onBack(). */
+  setBackButton(mode: BackButtonMode): void;
+  /** When true, Link asks before the user closes the app with ✕, the menu, a
+   * gesture or Back. Minimizing and LinkMiniApp.close() never ask. Default false. */
+  setCloseConfirmation(enabled: boolean): void;
+  /** Up to 5 own items, shown before the Link items of the ⋯ menu, which always
+   * remain. Replaces the previous list; [] removes them. Throws INVALID_MENU_ITEMS. */
+  setMenuItems(items: readonly MenuItem[]): void;
+  /** Called with the item ID when the user picks an own menu item. Every listener
+   * is called. Returns an idempotent unsubscribe. */
+  onMenuItem(listener: (id: string) => void): () => void;
+  /** Called after the user or minimize() has minimized the app. The page keeps
+   * running: pause a game and mute sound here. Returns an idempotent unsubscribe. */
+  onMinimize(listener: () => void): () => void;
+  /** Called when the minimized app is opened again. Returns an idempotent unsubscribe. */
+  onRestore(listener: () => void): () => void;
+  /** Minimizes the app as the ⌄ button does. */
+  minimize(): Promise<void>;
+  /** Colour of the header buttons and the status bar drawn over the page.
+   * 'light' for a dark page, 'dark' for a light page. Default 'auto'. */
+  setHeaderStyle(style: HeaderStyle): void;
+  /** For games: the header shrinks to a small ⋯ | ✕ capsule in the top right
+   * corner. The title and the left button are hidden; minimizing moves to the
+   * menu. headerHeight from getInsets() changes with it. Default false. */
+  setFullscreen(enabled: boolean): void;
+}
+
+export type BackButtonMode = 'auto' | 'back' | 'close' | 'hidden';
+export type MenuIcon = 'settings' | 'info' | 'help' | 'star' | 'bookmark' | 'edit' | 'search' |
+  'bell' | 'user' | 'gift' | 'cart' | 'list' | 'chat' | 'sound' | 'mute' | 'pause' | 'play' | 'restart';
+export interface MenuItem {
+  /** 1 to 32 characters: a-z, 0-9, '_' and '-'. Unique within the list. */
+  readonly id: string;
+  /** Plain text, 1 to 32 characters after trimming, one line. */
+  readonly title: string;
+  /** One of the icons drawn by Link; no images or URLs. */
+  readonly icon?: MenuIcon;
+}
+export interface HeaderStyle {
+  readonly icons: 'auto' | 'light' | 'dark';
+}
+
+/** The whole header state; the host applies the highest revision it has seen. */
+export interface HeaderStatePacket {
+  readonly version: 1;
+  readonly type: 'link-miniapp:header-state';
+  readonly document_id: string;
+  /** Strictly increasing positive safe integer per document, chosen by the SDK. */
+  readonly revision: number;
+  readonly state: Readonly<{
+    back_button: BackButtonMode;
+    close_confirmation: boolean;
+    menu_items: readonly MenuItem[];
+    icons: HeaderStyle['icons'];
+    fullscreen: boolean;
+  }>;
+}
+/** Host event IDs are strictly increasing positive safe integers per document. */
+export type HeaderEventPacket = Readonly<{
+  version: 1;
+  type: 'link-miniapp:header-event';
+  document_id: string;
+  event_id: number;
+}> & (Readonly<{ event: 'menu_item'; item_id: string }> | Readonly<{ event: 'minimize' | 'restore' }>);
+/** Optional header_v1 extension on the trusted, document-bound host adapter.
+ * The adapter also handles request method 'minimize'. */
+export interface HeaderHostBridge {
+  readonly capabilities: readonly string[];
+  readonly documentId: string;
+  setHeaderState(packet: HeaderStatePacket): void;
+  subscribeHeader(listener: (packet: HeaderEventPacket) => void): () => void;
 }
 
 /** Distances from the edges of the WebView. headerHeight already includes

@@ -1,5 +1,6 @@
 import { documentBack } from './back.js';
 import { readInsets, subscribeInsets } from './insets.js';
+import { documentHeader } from './header.js';
 
 export class MiniAppError extends Error {
   constructor(code) { super(code); this.name = "MiniAppError"; this.code = code; }
@@ -95,6 +96,7 @@ function userInfo(data, context) {
 export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } = {}) {
   const api = apiOrigin(apiBaseUrl);
   const back = documentBack(scope, code => new MiniAppError(code));
+  const header = documentHeader(scope, code => new MiniAppError(code));
   let pending, pendingUserInfo, current, generation = 0, closed = false;
   // The browser adapter can be revoked while an API response is in flight.
   // Invalidate that response even when the application has not called close().
@@ -176,7 +178,8 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
             current.user.sub !== context.user.sub || current.environment !== context.environment ||
             current.scopes.join(" ") !== context.scopes.join(" "))) generation++;
         back.connect(bridge, context);
-        if (back.closed) throw new MiniAppError("ACCESS_REVOKED");
+        header.connect(bridge, context);
+        if (back.closed || header.closed) throw new MiniAppError("ACCESS_REVOKED");
         current = context;
         return context;
       })().catch(error => { generation++; current = undefined; throw error; })
@@ -224,7 +227,21 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
     // Layout values only; available before init(), after close() and outside Link.
     getInsets: () => readInsets(scope),
     onInsetsChange: listener => subscribeInsets(scope, listener, code => new MiniAppError(code)),
-    async close() { back.stop(); closed = true; generation++; current = undefined; await request("close"); }
+    // header_v1: after init(), only on hosts that advertise it.
+    setBackButton: header.setBackButton,
+    setCloseConfirmation: header.setCloseConfirmation,
+    setMenuItems: header.setMenuItems,
+    onMenuItem: header.onMenuItem,
+    onMinimize: header.onMinimize,
+    onRestore: header.onRestore,
+    setHeaderStyle: header.setHeaderStyle,
+    setFullscreen: header.setFullscreen,
+    async minimize() {
+      if (closed) throw new MiniAppError("ACCESS_REVOKED");
+      header.ready();
+      await request("minimize");
+    },
+    async close() { back.stop(); header.stop(); closed = true; generation++; current = undefined; await request("close"); }
   });
   return sdk;
 }

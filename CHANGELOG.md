@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- `header_v1`: after `init()`, a page can change the Link header on clients that
+  advertise it. `setBackButton()` picks the left button (`auto`, `back`, `close`,
+  `hidden`); `setCloseConfirmation()` makes Link ask before the user closes the
+  app; `setMenuItems()` adds up to five own items before the Link items of the ⋯
+  menu, picked through `onMenuItem()`; `onMinimize()`, `onRestore()` and
+  `minimize()` handle the ⌄ button; `setHeaderStyle({ icons })` sets the colour
+  of the header buttons; `setFullscreen()` shrinks the header to a small corner
+  capsule for games.
+- The page cannot remove closing, minimizing or the Link menu items, and cannot
+  set the title. On older clients every call throws `HEADER_NOT_SUPPORTED` and
+  the header behaves as before.
+- New error codes: `HEADER_NOT_SUPPORTED`, `INVALID_HEADER_OPTION`,
+  `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `MINIMIZE_NOT_AVAILABLE`.
+- `docs/host-bridge.md` describes the packets and what clients must enforce.
+  No Link client implements `header_v1` yet.
+
 ## 0.4.0 — 2026-11-22
 
 - Link draws its header as a transparent overlay above every Mini App. The new
