@@ -663,7 +663,12 @@ to the background is not a minimize; the page sees `visibilitychange` for that.
 
 The SDK subscribes once after a successful `init()` when the adapter advertises
 `header_v1` and has both methods. Teardown, bridge, origin, document or identity
-replacement and `SDK.close()` stop the SDK side, including a packet not yet sent.
+replacement and `SDK.close()` stop the SDK side, including a packet not yet sent;
+header calls then throw `ACCESS_REVOKED`. If `subscribeHeader` throws or
+`setHeaderState` throws or rejects, the SDK turns off only the header for this
+document: header calls throw `HEADER_NOT_SUPPORTED`, as on an older host, and
+`init()`, `getUserInfo()` and Back keep working. `device_v1` behaves the same
+with `DEVICE_NOT_SUPPORTED` when `subscribeDevice` throws.
 
 [`test/header-host.mjs`](../test/header-host.mjs) is a synthetic host with these
 checks. It is an executable contract example, not a client implementation.
