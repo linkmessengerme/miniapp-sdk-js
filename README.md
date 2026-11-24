@@ -300,6 +300,18 @@ try {
   LinkMiniApp.onHeaderLayoutChange(place);
   ```
 
+- `onPause(reason => …)` / `onResume()` tell when the page is covered or hidden:
+  minimized, Link in the background, the screen locked, a call, or a Link menu or
+  dialog over the page. Pause a game there.
+- `setSoundControl(true)` adds «Без звука» to the ⋯ menu; Link remembers the
+  choice and reports it with `onSoundChange(muted => …)`. Mute yourself: Link
+  cannot mute a page.
+- `onClosing(reason => …)` runs just before the app closes; save within about
+  300 ms with synchronous storage or `navigator.sendBeacon`.
+- `supports('device_v1')`, then `getDevice()` and `onDeviceChange()`: platform,
+  performance class (`low`/`mid`/`high`), thermal state, power saving, low battery.
+  Lower the frame rate or effects when `powerSaving`, `thermal` is `serious` or
+  `performance` is `low`.
 - System Back still reaches `onBack()` in fullscreen: in a game, open the pause
   menu there and return `true`.
 
@@ -327,6 +339,7 @@ Direct calls to the browser adapter may still reject with an ordinary `Error`.
 | `INVALID_INSETS_LISTENER` | Pass a function to `onInsetsChange` |
 | `HEADER_NOT_SUPPORTED` | Initialize first; header control requires a `header_v1` client |
 | `INVALID_HEADER_OPTION`, `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `INVALID_LAYOUT_LISTENER` | Correct the arguments of the header call |
+| `DEVICE_NOT_SUPPORTED`, `INVALID_DEVICE_LISTENER` | Device state needs `init()` and a `device_v1` client; pass a function |
 | `MINIMIZE_NOT_AVAILABLE` | The app is already minimized or busy; nothing to do |
 | `TRANSPORT`, `API_TIMEOUT`, `SERVICE_UNAVAILABLE` | Show a network error and let the user retry |
 | `INVALID_CONFIG`, `INVALID_HOST_RESPONSE`, `INVALID_API_RESPONSE` | Correct the integration; discard the response |

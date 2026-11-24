@@ -58,7 +58,7 @@ test('calls in one task produce one packet with the whole state and an increasin
   await flush();
   assert.equal(f.host.applied.length, 1);
   assert.deepEqual(f.host.applied[0], { version: 1, type: 'link-miniapp:header-state', document_id: f.documentId,
-    revision: 1, state: { back_button: 'close', close_confirmation: true, icons: 'light', title: 'shown', fullscreen: false, orientation: 'auto',
+    revision: 1, state: { back_button: 'close', close_confirmation: true, icons: 'light', title: 'shown', fullscreen: false, orientation: 'auto', sound_control: false,
       menu_items: [{ id: 'settings', title: 'Настройки игры', icon: 'settings' }, { id: 'rules', title: 'Правила' }] } });
   assert.ok(Object.isFrozen(f.host.applied[0]) && Object.isFrozen(f.host.applied[0].state));
   f.sdk.setFullscreen(true); await flush();
@@ -133,7 +133,7 @@ test('back button modes, header style and fullscreen; close and minimize stay re
   assert.deepEqual(f.host.view().capsule, ['⋯', '⌄']);
   f.sdk.setFullscreen(true); await flush();
   assert.deepEqual(f.host.view(), { left: null, title: false, capsule: ['⋯', '✕'],
-    menu: ['«App» · мини-приложение', 'Обновить', 'Поделиться', 'Скопировать ссылку', 'О приложении', 'Пожаловаться', 'Закрыть приложение', 'Свернуть'] });
+    menu: ['«App» · мини-приложение', 'Обновить', 'Поделиться', 'Скопировать ссылку', 'О приложении', 'Пожаловаться', 'Свернуть', 'Закрыть приложение'] });
   for (const orientation of ['landscape', 'portrait', 'auto']) {
     f.sdk.setOrientation(orientation); await flush(); assert.equal(f.host.state.orientation, orientation);
   }
@@ -177,7 +177,8 @@ test('minimize and restore events; minimize() asks the host', async t => {
 test('old hosts and calls before init() throw HEADER_NOT_SUPPORTED and send nothing', async t => {
   const calls = sdk => [() => sdk.setBackButton('close'), () => sdk.setCloseConfirmation(true),
     () => sdk.setMenuItems([]), () => sdk.setHeaderStyle({ icons: 'dark' }), () => sdk.setFullscreen(true),
-    () => sdk.setOrientation('landscape'), () => sdk.onMenuItem(() => {}), () => sdk.onMinimize(() => {}), () => sdk.onRestore(() => {})];
+    () => sdk.setOrientation('landscape'), () => sdk.setSoundControl(true), () => sdk.onPause(() => {}),
+    () => sdk.onResume(() => {}), () => sdk.onSoundChange(() => {}), () => sdk.onClosing(() => {}), () => sdk.onMenuItem(() => {}), () => sdk.onMinimize(() => {}), () => sdk.onRestore(() => {})];
   for (const capabilities of [[], ['back_v1'], ['payments_v1']]) {
     const f = await fixture(t, { capabilities });
     for (const call of calls(f.sdk)) assert.throws(call, { name: 'MiniAppError', code: 'HEADER_NOT_SUPPORTED' });
@@ -272,7 +273,7 @@ test('the reference host rejects old revisions, foreign documents and broken sta
   const documentId = webcrypto.randomUUID(), host = headerHost({ documentId });
   const packet = (revision, state = {}) => ({ version: 1, type: 'link-miniapp:header-state', document_id: documentId,
     revision, state: { back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', title: 'shown', fullscreen: false,
-      orientation: 'auto', ...state } });
+      orientation: 'auto', sound_control: false, ...state } });
   assert.equal(host.apply(packet(2, { fullscreen: true })), true);
   assert.equal(host.apply(packet(1, { fullscreen: false })), false);
   assert.equal(host.apply(packet(2, { fullscreen: false })), false);
@@ -333,4 +334,54 @@ test('a listener removed by an earlier listener is not called for that event', a
   offSecond = f.sdk.onMinimize(() => seen.push(2));
   f.host.minimize();
   assert.deepEqual(seen, [1]);
+});
+
+test('pause and resume carry the reason once; minimize is followed by pause', async t => {
+  const f = await fixture(t), seen = [];
+  f.sdk.onPause(reason => seen.push(`pause:${reason}`));
+  f.sdk.onResume(() => seen.push('resume'));
+  f.sdk.onMinimize(() => seen.push('minimize'));
+  assert.equal(f.sdk.isPaused(), false);
+  f.host.openMenu(); assert.equal(f.sdk.isPaused(), true);
+  f.host.closeMenu();
+  f.host.minimize(); f.host.pause('locked'); f.host.resume('locked'); f.host.restore();
+  assert.deepEqual(seen, ['pause:overlay', 'resume', 'minimize', 'pause:minimized', 'resume']);
+  // A broken host repeating pause does not pause twice.
+  const base = { version: 1, type: 'link-miniapp:header-event', document_id: f.documentId };
+  f.send({ ...base, event_id: 100, event: 'pause', reason: 'background' });
+  f.send({ ...base, event_id: 101, event: 'pause', reason: 'interrupted' });
+  f.send({ ...base, event_id: 102, event: 'pause', reason: 'nap' });
+  assert.deepEqual(seen.slice(5), ['pause:background']);
+});
+
+test('sound: the Link mute item appears only on request and the page learns the remembered choice', async t => {
+  const f = await fixture(t), seen = [];
+  f.sdk.onSoundChange(muted => seen.push(muted));
+  assert.equal(f.host.view().menu.includes('Без звука'), false);
+  f.host.event('sound', { muted: true }); // not asked for: ignored
+  assert.deepEqual(seen, []); assert.equal(f.sdk.isMuted(), false);
+  f.sdk.setSoundControl(true); await flush();
+  assert.deepEqual(seen, []); // remembered choice: sound on — no change, so nothing reported
+  assert.ok(f.host.view().menu.includes('Без звука'));
+  f.host.tapMenu('Без звука');
+  assert.deepEqual(seen, [true]); assert.equal(f.sdk.isMuted(), true);
+  assert.ok(f.host.view().menu.includes('Включить звук'));
+  f.host.tapMenu('Включить звук');
+  assert.deepEqual(seen, [true, false]);
+  f.sdk.setSoundControl(false); await flush();
+  assert.equal(f.sdk.isMuted(), false);
+  assert.throws(() => f.sdk.setSoundControl('yes'), { code: 'INVALID_HEADER_OPTION' });
+});
+
+test('closing comes before the app closes, with the reason; LinkMiniApp.close() sends none', async t => {
+  for (const [reason, act] of [['user', h => h.userClose()], ['evicted', h => h.end('evicted')], ['revoked', h => h.end('revoked')]]) {
+    const f = await fixture(t), seen = [];
+    f.sdk.onClosing(r => seen.push([r, f.closeCount]));
+    act(f.host);
+    assert.deepEqual(seen, [[reason, 0]]); assert.equal(f.closeCount, 1);
+  }
+  const g = await fixture(t), seen = [];
+  g.sdk.onClosing(r => seen.push(r));
+  await g.sdk.close();
+  assert.deepEqual(seen, []);
 });

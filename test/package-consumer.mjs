@@ -11,8 +11,11 @@ assert.equal(typeof LinkMiniApp.getUserInfo, 'function');
 assert.equal(typeof LinkMiniApp.onBack, 'function');
 assert.equal(LinkMiniApp.pay, undefined);
 for (const method of ['setBackButton', 'setCloseConfirmation', 'setMenuItems', 'onMenuItem', 'onMinimize',
-  'onRestore', 'minimize', 'setHeaderStyle', 'setFullscreen', 'setOrientation', 'getHeaderLayout', 'onHeaderLayoutChange']) assert.equal(typeof LinkMiniApp[method], 'function');
+  'onRestore', 'minimize', 'setHeaderStyle', 'setFullscreen', 'setOrientation', 'getHeaderLayout', 'onHeaderLayoutChange',
+  'setSoundControl', 'onSoundChange', 'isMuted', 'onPause', 'onResume', 'isPaused', 'onClosing', 'supports', 'getDevice', 'onDeviceChange']) assert.equal(typeof LinkMiniApp[method], 'function');
 assert.throws(() => createSDK({}).setBackButton('close'), { code: 'HEADER_NOT_SUPPORTED' });
+assert.equal(createSDK({}).supports('header_v1'), false);
+assert.equal(createSDK({}).getDevice(), null);
 assert.deepEqual(createSDK({}).getHeaderLayout(), { height: 0, back: null, title: null, controls: null, free: null });
 assert.deepEqual(createSDK({}).getInsets(), { headerHeight: 0, safeArea: { top: 0, right: 0, bottom: 0, left: 0 }, controls: { top: 0, right: 0, width: 0, height: 0 } });
 assert.equal(installHeaderPreview({}), null);

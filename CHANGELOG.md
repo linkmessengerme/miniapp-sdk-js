@@ -23,7 +23,15 @@
   (at the end of the task where it is unavailable), sharing one read of the
   variables with `onHeaderLayoutChange()`. A throwing listener no longer stops
   the others.
-- New error codes: `HEADER_NOT_SUPPORTED`, `INVALID_HEADER_OPTION`,
+- `onPause()` / `onResume()` with the reason (minimized, background, locked,
+  interrupted, overlay), `isPaused()`; `setSoundControl()` adds a Link mute item
+  to the ⋯ menu, reported with `onSoundChange()` / `isMuted()`; `onClosing()` gives
+  the page about 300 ms to save before the app closes.
+- `device_v1`: `getDevice()` / `onDeviceChange()` return coarse device state —
+  platform, Link version, performance class, thermal state, power saving and low
+  battery, without a battery percentage or anything identifying. `supports(name)`
+  tells whether an extension is available after `init()`.
+- New error codes: `DEVICE_NOT_SUPPORTED`, `INVALID_DEVICE_LISTENER`, `HEADER_NOT_SUPPORTED`, `INVALID_HEADER_OPTION`,
   `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `INVALID_LAYOUT_LISTENER`, `MINIMIZE_NOT_AVAILABLE`.
 - `docs/host-bridge.md` describes the packets and what clients must enforce.
   No Link client implements `header_v1` yet.

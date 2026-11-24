@@ -1,6 +1,6 @@
 import LinkMiniApp, { createSDK, type MiniAppUserInfo, type BackContext, type BackHandler,
   type BackEventPacket, type BackAckPacket, type BackHostBridge, type MiniAppInsets, type MenuItem,
-  type HeaderStatePacket, type HeaderEventPacket, type HeaderHostBridge, type HeaderLayout, type HeaderRect } from "@link-apps/miniapp";
+  type HeaderStatePacket, type HeaderEventPacket, type HeaderHostBridge, type HeaderLayout, type HeaderRect, type DeviceState, type PauseReason, type ClosingReason, type DeviceHostBridge } from "@link-apps/miniapp";
 import { installHeaderPreview, type HeaderPreview } from "@link-apps/miniapp/preview";
 import { installBrowserHost, type BrowserHostConnection } from "@link-apps/miniapp/browser-host";
 
@@ -53,6 +53,22 @@ async function consume() {
   LinkMiniApp.setHeaderStyle({ title: 'My shop' });
   LinkMiniApp.setFullscreen(true);
   LinkMiniApp.setOrientation('landscape');
+  LinkMiniApp.setSoundControl(true);
+  LinkMiniApp.onSoundChange((muted: boolean) => { void muted; });
+  const isMuted: boolean = LinkMiniApp.isMuted();
+  LinkMiniApp.onPause((reason: PauseReason) => { void reason; });
+  LinkMiniApp.onResume(() => {});
+  LinkMiniApp.onClosing((reason: ClosingReason) => { void reason; });
+  // @ts-expect-error Unknown pause reason.
+  const badReason: PauseReason = 'nap';
+  const supported: boolean = LinkMiniApp.supports('header_v1');
+  const device: DeviceState | null = LinkMiniApp.getDevice();
+  if (device && (device.thermal === 'serious' || device.powerSaving || device.performance === 'low')) void device.platform;
+  LinkMiniApp.onDeviceChange(next => { void next.batteryLow; });
+  const deviceBridge: DeviceHostBridge = { documentId: 'document', capabilities: ['device_v1'], subscribeDevice(listener) {
+    listener({ version: 1, type: 'link-miniapp:device', document_id: 'document', event_id: 1, state: { platform: 'ios',
+      link_version: '7.1.0', performance: 'high', thermal: 'nominal', power_saving: false, battery_low: false } }); return () => {}; } };
+  void deviceBridge; void isMuted; void badReason; void supported;
   const corner: number = LinkMiniApp.getInsets().controls.width;
   const layout: HeaderLayout = LinkMiniApp.getHeaderLayout();
   const gap: HeaderRect | null = layout.free;
@@ -69,7 +85,7 @@ async function consume() {
   // @ts-expect-error The header colour itself is not set by the page.
   LinkMiniApp.setHeaderStyle({ icons: 'dark', color: '#000000' });
   const state: HeaderStatePacket = { version: 1, type: 'link-miniapp:header-state', document_id: 'document', revision: 1,
-    state: { back_button: 'auto', close_confirmation: false, menu_items: items, icons: 'auto', title: 'shown', fullscreen: false, orientation: 'auto' } };
+    state: { back_button: 'auto', close_confirmation: false, menu_items: items, icons: 'auto', title: 'shown', fullscreen: false, orientation: 'auto', sound_control: false } };
   const pick: HeaderEventPacket = { version: 1, type: 'link-miniapp:header-event', document_id: 'document',
     event_id: 1, event: 'menu_item', item_id: 'settings' };
   // @ts-expect-error A menu event names its item.

@@ -96,6 +96,66 @@ export interface MiniAppSDK {
    * it is open; Link returns to its own orientation on minimize and close.
    * 'auto' (default) follows the device. No effect on desktop. */
   setOrientation(orientation: 'auto' | 'portrait' | 'landscape'): void;
+  /** true adds a Link «Без звука» / «Включить звук» item to the ⋯ menu. Link
+   * remembers the choice per app and reports it with onSoundChange(); the page
+   * mutes itself, Link cannot mute a page. Default false. */
+  setSoundControl(enabled: boolean): void;
+  /** Called with true when the user mutes the app in the ⋯ menu, false when sound
+   * returns, and once after setSoundControl(true) if the remembered choice is muted. */
+  onSoundChange(listener: (muted: boolean) => void): () => void;
+  /** Current choice; false outside Link, on older hosts and without setSoundControl(true). */
+  isMuted(): boolean;
+  /** Called when the page stops being in front: minimized, Link in the background,
+   * screen locked, an interruption such as a call, or a Link overlay over the page
+   * (⋯ menu, dialog, sheet, checkout). Pause a game here. Not repeated while paused. */
+  onPause(listener: (reason: PauseReason) => void): () => void;
+  /** Called when nothing covers the page any more. */
+  onResume(listener: () => void): () => void;
+  isPaused(): boolean;
+  /** Called just before the app closes; the page has about 300 ms to save, so use
+   * synchronous storage or navigator.sendBeacon. Not called for LinkMiniApp.close(). */
+  onClosing(listener: (reason: ClosingReason) => void): () => void;
+
+  /** Whether a host extension is available: false before init() and on hosts that
+   * do not provide all of it. 'back_v1', 'header_v1', 'device_v1', … */
+  supports(capability: string): boolean;
+  /** Coarse device state from device_v1; null before init(), on older hosts and
+   * until the host has sent it. */
+  getDevice(): DeviceState | null;
+  /** Called when the device state changes. Throws DEVICE_NOT_SUPPORTED without
+   * device_v1. Returns an idempotent unsubscribe. */
+  onDeviceChange(listener: (state: DeviceState) => void): () => void;
+}
+
+export type PauseReason = 'minimized' | 'background' | 'locked' | 'interrupted' | 'overlay';
+export type ClosingReason = 'user' | 'evicted' | 'revoked';
+/** Deliberately coarse: no battery percentage, model or other identifying detail. */
+export interface DeviceState {
+  readonly platform: 'ios' | 'android' | 'desktop';
+  readonly linkVersion: string;
+  /** Link's estimate from memory and processor: lower effects on 'low'. */
+  readonly performance: 'low' | 'mid' | 'high';
+  /** From the system: reduce frame rate and quality from 'serious'. */
+  readonly thermal: 'nominal' | 'fair' | 'serious' | 'critical';
+  /** Low Power Mode / Battery Saver is on. */
+  readonly powerSaving: boolean;
+  /** The battery is low and not charging. */
+  readonly batteryLow: boolean;
+}
+export interface DeviceEventPacket {
+  readonly version: 1;
+  readonly type: 'link-miniapp:device';
+  readonly document_id: string;
+  /** Strictly increasing positive safe integer per document. */
+  readonly event_id: number;
+  readonly state: Readonly<{ platform: DeviceState['platform']; link_version: string; performance: DeviceState['performance'];
+    thermal: DeviceState['thermal']; power_saving: boolean; battery_low: boolean }>;
+}
+/** Optional device_v1 extension on the trusted, document-bound host adapter. */
+export interface DeviceHostBridge {
+  readonly capabilities: readonly string[];
+  readonly documentId: string;
+  subscribeDevice(listener: (packet: DeviceEventPacket) => void): () => void;
 }
 
 export type BackButtonMode = 'auto' | 'back' | 'close' | 'hidden';
@@ -127,6 +187,7 @@ export interface HeaderStatePacket {
     title: 'shown' | 'hidden';
     fullscreen: boolean;
     orientation: 'auto' | 'portrait' | 'landscape';
+    sound_control: boolean;
   }>;
 }
 /** Host event IDs are strictly increasing positive safe integers per document. */
@@ -135,7 +196,9 @@ export type HeaderEventPacket = Readonly<{
   type: 'link-miniapp:header-event';
   document_id: string;
   event_id: number;
-}> & (Readonly<{ event: 'menu_item'; item_id: string }> | Readonly<{ event: 'minimize' | 'restore' }>);
+}> & (Readonly<{ event: 'menu_item'; item_id: string }> | Readonly<{ event: 'minimize' | 'restore' | 'resume' }> |
+  Readonly<{ event: 'pause'; reason: PauseReason }> | Readonly<{ event: 'closing'; reason: ClosingReason }> |
+  Readonly<{ event: 'sound'; muted: boolean }>);
 /** Optional header_v1 extension on the trusted, document-bound host adapter.
  * The adapter also handles request method 'minimize'. */
 export interface HeaderHostBridge {

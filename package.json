@@ -45,6 +45,7 @@
     "index.d.ts",
     "back.js",
     "header.js",
+    "device.js",
     "browser-host.js",
     "browser-host.d.ts",
     "insets.js",

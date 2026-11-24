@@ -641,3 +641,58 @@ replacement and `SDK.close()` stop the SDK side, including a packet not yet sent
 
 [`test/header-host.mjs`](../test/header-host.mjs) is a synthetic host with these
 checks. It is an executable contract example, not a client implementation.
+
+### Pause, sound and closing events (header_v1)
+
+```json
+{"version":1,"type":"link-miniapp:header-event","document_id":"<uuid>","event_id":10,"event":"pause","reason":"overlay"}
+{"version":1,"type":"link-miniapp:header-event","document_id":"<uuid>","event_id":11,"event":"resume"}
+{"version":1,"type":"link-miniapp:header-event","document_id":"<uuid>","event_id":12,"event":"sound","muted":true}
+{"version":1,"type":"link-miniapp:header-event","document_id":"<uuid>","event_id":13,"event":"closing","reason":"user"}
+```
+
+- `pause` / `resume`: the host keeps a set of reasons — `minimized`, `background`
+  (Link left the screen), `locked`, `interrupted` (call, Siri, alarm, audio focus
+  lost) and `overlay` (the ⋯ menu, a Link dialog or sheet, checkout, share). It
+  sends `pause` with the reason that made the set non-empty and `resume` when the
+  set is empty again; reason changes in between are not sent. Send `pause` before
+  the overlay or animation appears. After `minimize` the host also sends `pause`.
+- `sound`: with `sound_control: true` in the state, the host adds «Без звука» /
+  «Включить звук» to the system group of the ⋯ menu, remembers the choice per app
+  and user on the device, sends the remembered value right after `sound_control`
+  turns on, and again on every toggle. The page mutes itself. On iOS, run Mini App
+  WebViews in the `.ambient` audio session category, so the ring/silent switch
+  silences them and the user's music keeps playing.
+- `closing`: sent once before the app closes, with `user` (✕, the menu, Back that
+  ended in close, ✕ on the minimized bar — after the confirmation if any),
+  `evicted` (a fourth app needs room) or `revoked` (access withdrawn, sign-out,
+  account switch). The host keeps the page running for 300 ms after sending, then
+  tears it down. Not sent for `LinkMiniApp.close()`.
+
+## Device extension (unreleased)
+
+`device_v1` gives a page coarse device state so it can save power and keep a game
+smooth. The bridge has `capabilities` including `device_v1`, the same `documentId`
+and `subscribeDevice(listener): () => void`. The host sends the whole state once on
+subscription and again on every change:
+
+```json
+{"version":1,"type":"link-miniapp:device","document_id":"<uuid>","event_id":1,
+ "state":{"platform":"ios","link_version":"7.1.0","performance":"high","thermal":"nominal","power_saving":false,"battery_low":false}}
+```
+
+| Field | Values | Source |
+| --- | --- | --- |
+| `platform` | `ios`, `android`, `desktop` | The client. |
+| `link_version` | `^[0-9A-Za-z.+-]{1,32}$` | The client version. |
+| `performance` | `low`, `mid`, `high` | The client's estimate from memory and processor cores, fixed per device. |
+| `thermal` | `nominal`, `fair`, `serious`, `critical` | iOS `ProcessInfo.thermalState`; Android `PowerManager` thermal status (API 29+, `nominal` before); macOS `ProcessInfo.thermalState`; Windows `nominal`. |
+| `power_saving` | boolean | iOS Low Power Mode; Android Battery Saver; desktop OS battery saver. |
+| `battery_low` | boolean | At most 20 % and not charging. |
+
+Never send a battery percentage, a device model, a name or any other value that
+helps identify a device. All values need no runtime permission on any platform.
+Do not send more than one state per second; coalesce. The SDK ignores malformed
+and repeated states and exposes them only after `init()` in the authorized main
+document. `supports(name)` in the SDK is true only for an extension the host
+provides completely.

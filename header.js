@@ -18,7 +18,13 @@ export const ORIENTATIONS = Object.freeze(['auto', 'portrait', 'landscape']);
 // Names of icons drawn by Link. Pages cannot pass images or URLs.
 export const MENU_ICONS = Object.freeze(['settings', 'info', 'help', 'star', 'bookmark', 'edit',
   'search', 'bell', 'user', 'gift', 'cart', 'list', 'chat', 'sound', 'mute', 'pause', 'play', 'restart']);
-export const HEADER_EVENTS = Object.freeze(['menu_item', 'minimize', 'restore']);
+export const HEADER_EVENTS = Object.freeze(['menu_item', 'minimize', 'restore', 'pause', 'resume', 'sound', 'closing']);
+// Why the page is not in front: minimized, Link in the background, screen locked,
+// an interruption such as a call or Siri, or a Link overlay (menu, dialog, sheet, checkout).
+export const PAUSE_REASONS = Object.freeze(['minimized', 'background', 'locked', 'interrupted', 'overlay']);
+// Who closes the app: the user, Link making room for another app, or a revocation
+// (access withdrawn, sign-out, account switch). LinkMiniApp.close() sends nothing.
+export const CLOSING_REASONS = Object.freeze(['user', 'evicted', 'revoked']);
 
 const MENU_ID = /^[a-z0-9_-]{1,32}$/;
 // Control characters, line and paragraph separators and bidirectional overrides.
@@ -32,15 +38,22 @@ const graphemes = text => {
 
 export const defaultHeaderState = () => ({
   back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', title: 'shown', fullscreen: false,
-  orientation: 'auto',
+  orientation: 'auto', sound_control: false,
 });
 
 export function isHeaderEvent(packet, documentId) {
   if (packet?.version !== 1 || packet.type !== 'link-miniapp:header-event' ||
       packet.document_id !== documentId || !Number.isSafeInteger(packet.event_id) ||
       packet.event_id <= 0 || !HEADER_EVENTS.includes(packet.event)) return false;
-  return packet.event === 'menu_item' ? typeof packet.item_id === 'string' && MENU_ID.test(packet.item_id)
-    : packet.item_id === undefined;
+  const extra = Object.keys(packet).filter(key => !['version', 'type', 'document_id', 'event_id', 'event'].includes(key));
+  const only = (key, valid) => extra.length === 1 && extra[0] === key && valid(packet[key]);
+  switch (packet.event) {
+    case 'menu_item': return only('item_id', v => typeof v === 'string' && MENU_ID.test(v));
+    case 'pause': return only('reason', v => PAUSE_REASONS.includes(v));
+    case 'closing': return only('reason', v => CLOSING_REASONS.includes(v));
+    case 'sound': return only('muted', v => typeof v === 'boolean');
+    default: return extra.length === 0;
+  }
 }
 
 // Returns a frozen wire copy or throws INVALID_MENU_ITEMS.
@@ -68,7 +81,8 @@ export function documentHeader(scope, failure) {
   let bridge, documentId, origin, identity, detach;
   let stopped = false, scheduled = false, revision = 0, lastEvent = 0, lastSent = JSON.stringify(defaultHeaderState());
   let state = defaultHeaderState();
-  const listeners = { menu_item: new Set(), minimize: new Set(), restore: new Set() };
+  const listeners = Object.fromEntries(HEADER_EVENTS.map(event => [event, new Set()]));
+  let muted = false, paused = false;
   const sameDocument = () => !stopped && scope.__LinkMiniAppHost === bridge &&
     bridge.documentId === documentId && scope.location?.origin === origin &&
     (!('top' in scope) || scope.top === scope);
@@ -111,11 +125,17 @@ export function documentHeader(scope, failure) {
     lastEvent = packet.event_id;
     // A tap on an item the page has removed since the menu opened is dropped.
     if (packet.event === 'menu_item' && !state.menu_items.some(item => item.id === packet.item_id)) return;
+    // Sound events matter only to a page that asked for the Link mute item.
+    if (packet.event === 'sound') { if (!state.sound_control || packet.muted === muted) return; muted = packet.muted; }
+    // A repeated pause or resume is not reported twice.
+    if (packet.event === 'pause') { if (paused) return; paused = true; }
+    if (packet.event === 'resume') { if (!paused) return; paused = false; }
+    const value = { menu_item: packet.item_id, pause: packet.reason, closing: packet.reason, sound: packet.muted }[packet.event];
     const set = listeners[packet.event];
     for (const listener of [...set]) {
       if (!set.has(listener)) continue; // Removed by an earlier listener.
       try {
-        const result = packet.event === 'menu_item' ? listener(packet.item_id) : listener();
+        const result = value === undefined ? listener() : listener(value);
         if (typeof result?.then === 'function') Promise.resolve(result).catch(report);
       } catch (error) { report(error); }
     }
@@ -180,6 +200,17 @@ export function documentHeader(scope, failure) {
     setOrientation(orientation) {
       option(ORIENTATIONS.includes(orientation)); ready(); change({ orientation });
     },
+    setSoundControl(enabled) {
+      option(typeof enabled === 'boolean'); ready(); change({ sound_control: enabled });
+      if (!enabled) muted = false;
+    },
+    // Current values; false outside Link and on hosts without header_v1.
+    isMuted: () => muted,
+    isPaused: () => paused,
+    onPause: listener => subscribe('pause', listener),
+    onResume: listener => subscribe('resume', listener),
+    onSoundChange: listener => subscribe('sound', listener),
+    onClosing: listener => subscribe('closing', listener),
     onMenuItem: listener => subscribe('menu_item', listener),
     onMinimize: listener => subscribe('minimize', listener),
     onRestore: listener => subscribe('restore', listener),
