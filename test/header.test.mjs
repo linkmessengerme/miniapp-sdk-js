@@ -99,7 +99,7 @@ test('menu item validation', async t => {
     [{ id: 'a'.repeat(33), title: 'x' }], [{ id: 'a b', title: 'x' }], [{ id: 'a', title: '' }],
     [{ id: 'a', title: '   ' }], [{ id: 'a', title: 'x'.repeat(33) }], [{ id: 'a', title: 'two\nlines' }],
     [{ id: 'a', title: 'evil\u202etxt' }], [{ id: 'a', title: 5 }], [{ id: 'a', title: 'x', icon: 'https://x/y.png' }],
-    [{ id: 'a', title: 'x' }, { id: 'a', title: 'y' }],
+    [{ id: 'a', title: 'x' }, { id: 'a', title: 'y' }], [{ id: 'a', title: ('a' + '\u0301'.repeat(200)).repeat(32) }],
     Array.from({ length: 6 }, (_, i) => ({ id: `i${i}`, title: `Item ${i}` }))];
   for (const items of bad) {
     assert.throws(() => f.sdk.setMenuItems(items), { name: 'MiniAppError', code: 'INVALID_MENU_ITEMS' });
@@ -142,7 +142,7 @@ test('back button modes, header style and fullscreen; close and minimize stay re
     () => f.sdk.setCloseConfirmation('yes'), () => f.sdk.setCloseConfirmation(1), () => f.sdk.setFullscreen(null),
     () => f.sdk.setHeaderStyle({ icons: 'red' }), () => f.sdk.setHeaderStyle({ icons: 'dark', color: '#000' }),
     () => f.sdk.setHeaderStyle(null), () => f.sdk.setHeaderStyle('dark'), () => f.sdk.setHeaderStyle({}),
-    () => f.sdk.setHeaderStyle({ title: 'none' }), () => f.sdk.setHeaderStyle({ title: false }), () => f.sdk.setHeaderStyle({ title: 'hidden', name: 'Shop' }),
+    () => f.sdk.setHeaderStyle({ icons: undefined }), () => f.sdk.setHeaderStyle({ title: 'none' }), () => f.sdk.setHeaderStyle({ title: false }), () => f.sdk.setHeaderStyle({ title: 'hidden', name: 'Shop' }),
     () => f.sdk.setOrientation('landscape-left'), () => f.sdk.setOrientation(90)]) {
     assert.throws(call, { code: 'INVALID_HEADER_OPTION' });
   }
@@ -300,4 +300,37 @@ test('the title can be removed; Link keeps the name at the top of the menu', asy
   assert.deepEqual([f.host.view().left, f.host.view().capsule], [null, ['⋯', '⌄']]); // close and minimize stay
   f.sdk.setHeaderStyle({ title: 'shown' }); await flush();
   assert.equal(f.host.view().title, true);
+});
+
+test('identical states are not sent again; the whole state stays far below 8 KiB', async t => {
+  const f = await fixture(t);
+  for (let i = 0; i < 10; i++) { f.sdk.setHeaderStyle({ icons: 'dark' }); await flush(); }
+  for (let i = 0; i < 3; i++) { f.sdk.setMenuItems([{ id: 'a', title: 'A' }]); await flush(); }
+  assert.equal(f.host.applied.length, 2);
+  f.sdk.setHeaderStyle({ icons: 'auto' }); f.sdk.setMenuItems([]); await flush(); // back to defaults
+  assert.equal(f.host.applied.length, 3);
+  f.sdk.setHeaderStyle({ icons: 'auto' }); await flush();
+  assert.equal(f.host.applied.length, 3);
+  const longest = Array.from({ length: 5 }, (_, i) => ({ id: 'x'.repeat(31) + i, title: ('a' + '\u0301'.repeat(3)).repeat(32), icon: 'restart' }));
+  f.sdk.setMenuItems(longest); f.sdk.setBackButton('hidden'); f.sdk.setHeaderStyle({ icons: 'light', title: 'hidden' });
+  f.sdk.setFullscreen(true); f.sdk.setOrientation('landscape'); await flush();
+  assert.ok(new TextEncoder().encode(JSON.stringify(f.host.applied.at(-1))).length < 8192);
+});
+
+test('a broken header transport turns off only the header; init still works', async t => {
+  const f = await fixture(t, { init: false });
+  f.bridge.subscribeHeader = () => { throw Error('private'); };
+  await f.sdk.init();
+  await f.sdk.init();
+  assert.throws(() => f.sdk.setFullscreen(true), { code: 'ACCESS_REVOKED' });
+  assert.equal(f.closeCount, 0);
+});
+
+test('a listener removed by an earlier listener is not called for that event', async t => {
+  const f = await fixture(t), seen = [];
+  let offSecond;
+  f.sdk.onMinimize(() => { seen.push(1); offSecond(); });
+  offSecond = f.sdk.onMinimize(() => seen.push(2));
+  f.host.minimize();
+  assert.deepEqual(seen, [1]);
 });

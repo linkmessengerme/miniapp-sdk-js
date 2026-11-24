@@ -8,6 +8,9 @@ import { validDocumentId } from './back.js';
 export const HEADER_CAPABILITY = 'header_v1';
 export const MAX_MENU_ITEMS = 5;
 export const MAX_MENU_TITLE = 32;
+// A user-perceived character can carry any number of combining marks; this keeps
+// the whole state far below the 8 KiB packet limit of the contract.
+export const MAX_MENU_TITLE_UNITS = 128;
 export const BACK_BUTTON_MODES = Object.freeze(['auto', 'back', 'close', 'hidden']);
 export const HEADER_ICON_STYLES = Object.freeze(['auto', 'light', 'dark']);
 export const HEADER_TITLE_MODES = Object.freeze(['shown', 'hidden']);
@@ -21,6 +24,11 @@ const MENU_ID = /^[a-z0-9_-]{1,32}$/;
 // Control characters, line and paragraph separators and bidirectional overrides.
 const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/;
 const documents = new WeakMap();
+let segmenter;
+const graphemes = text => {
+  if (segmenter === undefined) segmenter = typeof Intl?.Segmenter === 'function' ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+  return segmenter ? [...segmenter.segment(text)].length : [...text].length;
+};
 
 export const defaultHeaderState = () => ({
   back_button: 'auto', close_confirmation: false, menu_items: [], icons: 'auto', title: 'shown', fullscreen: false,
@@ -48,9 +56,8 @@ export function menuItems(items, failure) {
     if (typeof title !== 'string' || UNSAFE_TEXT.test(title)) invalid();
     const text = title.trim();
     // Length in user-perceived characters, so an emoji or a Turkmen letter counts once.
-    const length = typeof Intl?.Segmenter === 'function'
-      ? [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].length : [...text].length;
-    if (length < 1 || length > MAX_MENU_TITLE) invalid();
+    const length = graphemes(text);
+    if (length < 1 || length > MAX_MENU_TITLE || text.length > MAX_MENU_TITLE_UNITS) invalid();
     if (icon !== undefined && !MENU_ICONS.includes(icon)) invalid();
     return Object.freeze(icon === undefined ? { id, title: text } : { id, title: text, icon });
   }));
@@ -59,7 +66,7 @@ export function menuItems(items, failure) {
 export function documentHeader(scope, failure) {
   if (documents.has(scope)) return documents.get(scope);
   let bridge, documentId, origin, identity, detach;
-  let stopped = false, scheduled = false, revision = 0, lastEvent = 0;
+  let stopped = false, scheduled = false, revision = 0, lastEvent = 0, lastSent = JSON.stringify(defaultHeaderState());
   let state = defaultHeaderState();
   const listeners = { menu_item: new Set(), minimize: new Set(), restore: new Set() };
   const sameDocument = () => !stopped && scope.__LinkMiniAppHost === bridge &&
@@ -74,17 +81,24 @@ export function documentHeader(scope, failure) {
   }
   function report(error) {
     // A failing application listener must not stop other listeners or the bridge.
-    try { scope.reportError?.(error); } catch { /* Nothing else to do. */ }
+    if (typeof scope.reportError === 'function') { try { scope.reportError(error); return; } catch { /* fall through */ } }
+    setTimeout(() => { throw error; });
   }
   function flush() {
     scheduled = false;
     if (!sameDocument()) { stop(); return; }
+    // Nothing is sent when the state equals what the host already has, so a page
+    // may call a setter from a scroll handler without crossing the native bridge.
+    const text = JSON.stringify(state);
+    if (text === lastSent) return;
+    lastSent = text;
     const packet = Object.freeze({ version: 1, type: 'link-miniapp:header-state',
       document_id: documentId, revision: ++revision, state: Object.freeze({ ...state }) });
     try { Promise.resolve(bridge.setHeaderState(packet)).catch(stop); }
     catch { stop(); }
   }
-  // Several calls in one task produce one packet, so the header does not flicker.
+  // Calls made together, before the next microtask checkpoint, produce one packet,
+  // so the header does not flicker.
   function change(next) {
     state = { ...state, ...next };
     if (scheduled) return;
@@ -97,7 +111,9 @@ export function documentHeader(scope, failure) {
     lastEvent = packet.event_id;
     // A tap on an item the page has removed since the menu opened is dropped.
     if (packet.event === 'menu_item' && !state.menu_items.some(item => item.id === packet.item_id)) return;
-    for (const listener of [...listeners[packet.event]]) {
+    const set = listeners[packet.event];
+    for (const listener of [...set]) {
+      if (!set.has(listener)) continue; // Removed by an earlier listener.
       try {
         const result = packet.event === 'menu_item' ? listener(packet.item_id) : listener();
         if (typeof result?.then === 'function') Promise.resolve(result).catch(report);
@@ -153,8 +169,8 @@ export function documentHeader(scope, failure) {
       // Only the keys given change; the others keep their current value.
       const keys = style !== null && typeof style === 'object' && !Array.isArray(style) ? Object.keys(style) : [];
       option(keys.length > 0 && keys.every(key => key === 'icons' || key === 'title') &&
-        (style.icons === undefined || HEADER_ICON_STYLES.includes(style.icons)) &&
-        (style.title === undefined || HEADER_TITLE_MODES.includes(style.title)));
+        (!('icons' in style) || HEADER_ICON_STYLES.includes(style.icons)) &&
+        (!('title' in style) || HEADER_TITLE_MODES.includes(style.title)));
       ready();
       change({ ...(style.icons !== undefined && { icons: style.icons }), ...(style.title !== undefined && { title: style.title }) });
     },

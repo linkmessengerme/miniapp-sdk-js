@@ -19,6 +19,10 @@
 - The page cannot remove closing, minimizing or the Link menu items, and cannot
   set the title. On older clients every call throws `HEADER_NOT_SUPPORTED` and
   the header behaves as before.
+- `onInsetsChange()` listeners now run once per frame in `requestAnimationFrame`
+  (at the end of the task where it is unavailable), sharing one read of the
+  variables with `onHeaderLayoutChange()`. A throwing listener no longer stops
+  the others.
 - New error codes: `HEADER_NOT_SUPPORTED`, `INVALID_HEADER_OPTION`,
   `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `INVALID_LAYOUT_LISTENER`, `MINIMIZE_NOT_AVAILABLE`.
 - `docs/host-bridge.md` describes the packets and what clients must enforce.

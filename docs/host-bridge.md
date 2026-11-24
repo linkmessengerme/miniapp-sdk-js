@@ -439,8 +439,10 @@ hosts keep their behaviour.
 The packet always carries the whole state. `revision` is a strictly increasing
 positive safe integer per document, chosen by the SDK; the host applies a packet
 only if its revision is higher than the last applied one, and otherwise ignores
-it. The SDK sends at most one packet per task. The host may apply at most one per
-frame and keeps the last.
+it. The SDK merges calls made together into one packet and sends nothing when the
+state equals the last one sent. The host may apply at most one per frame and keeps
+the last. A menu title is also limited to 128 UTF-16 code units, so the largest
+valid state stays far below the 8 KiB limit.
 
 The host validates every field and ignores the whole packet when one is invalid,
 keeping the previous state; unknown extra fields are ignored. Packets larger than
@@ -565,6 +567,45 @@ System gestures in fullscreen:
   `true`.
 - Desktop: Esc is not taken from a focused page; the page handles it itself.
 
+### Touch, accessibility and motion
+
+- Every host control has a touch area of at least 44 × 44 pt (iOS, desktop) or
+  48 × 48 dp (Android), larger than the drawn control where needed: the 32 pt
+  fullscreen capsule and the 36 pt compact buttons get invisible margins. The
+  `controls`, `back` and `title` variables describe these touch areas.
+- The backing of each control changes together with `icons`, so a wrong choice by
+  the page never makes a button invisible. The fullscreen capsule backing is at
+  least 72 % opaque: white icons keep a contrast of at least 6.5 : 1 over a white
+  game background.
+- Menu rows are at least 44 pt high in every orientation. When a landscape column
+  does not fit the screen height, that column scrolls; the identity row (icon and
+  name) heads the left column.
+- Accessibility labels: «Назад», «Закрыть», «Ещё», «Свернуть». With the title
+  hidden or in fullscreen, «Ещё» also names the app («Ещё, Hayrat»). The identity
+  row in the menu is a heading. Own menu items are read by their titles.
+- With a larger text size the header row and the menu rows grow and the variables
+  change; titles that do not fit end with an ellipsis, never clipped.
+- Desktop keyboard order: left button, title (opens About), ⋯, ⌄ or ✕.
+- With Reduce Motion on, entering and leaving fullscreen, the compact header and
+  orientation changes use a cross-fade or no animation instead of movement.
+
+### Performance
+
+- Update all variables in one stylesheet change and dispatch one
+  `linkminiapp:insets` per change, not one per variable, and none when nothing
+  changed. Compute the rectangles from the layout pass that draws the header; do
+  not measure again for the page.
+- The SDK reads the variables once per frame in `requestAnimationFrame` for all
+  listeners, after the page's own resize handlers, so the browser recalculates
+  styles once per frame. (Measured on a 4,000-element page: 21 ms per frame
+  instead of 34 ms when the SDK read inside the event.)
+- Apply at most one header state per frame. Parse and validate it off the main
+  thread when the platform allows.
+- Send `minimize` when minimizing starts, before the animation, so a game stops
+  its sound at once. A minimized WebView stops drawing: Android `onPause()`, iOS
+  out of the window, desktop hidden; JavaScript timers may keep running, so the
+  page stops its own loops in `onMinimize`.
+
 Orientation:
 
 - `landscape` turns the Mini App screen to landscape and lets it follow the sensor
@@ -589,8 +630,9 @@ Orientation:
 `event_id` is a strictly increasing positive safe integer per document, separate
 from Back event IDs. The SDK drops repeated and older IDs, and a `menu_item` whose
 item the page has since removed. No acknowledgement is sent: the page cannot delay
-or cancel a minimize. Send `minimize` once the app has been minimized by ⌄, the
-menu or `minimize()`, and `restore` when it is visible again. Moving Link itself
+or cancel a minimize. Send `minimize` as soon as minimizing starts (⌄, the menu
+or `minimize()`), before the animation, and `restore` when the app is visible
+again. Moving Link itself
 to the background is not a minimize; the page sees `visibilitychange` for that.
 
 The SDK subscribes once after a successful `init()` when the adapter advertises

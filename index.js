@@ -178,8 +178,9 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
             current.user.sub !== context.user.sub || current.environment !== context.environment ||
             current.scopes.join(" ") !== context.scopes.join(" "))) generation++;
         back.connect(bridge, context);
+        // header_v1 is optional: a broken header transport turns off only the header.
         header.connect(bridge, context);
-        if (back.closed || header.closed) throw new MiniAppError("ACCESS_REVOKED");
+        if (back.closed) throw new MiniAppError("ACCESS_REVOKED");
         current = context;
         return context;
       })().catch(error => { generation++; current = undefined; throw error; })

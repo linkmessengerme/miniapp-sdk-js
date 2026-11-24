@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { createSDK, MiniAppError } from '../index.js';
 import { installHeaderPreview } from '../preview.js';
 
+const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+
 // A window-like scope whose :root custom properties are a plain map.
 function page(properties = {}) {
   const scope = new EventTarget();
@@ -38,24 +40,52 @@ test('missing, malformed and foreign values read as 0', () => {
   assert.deepEqual(createSDK(throwing).getInsets(), zero);
 });
 
-test('onInsetsChange reports changes once and unsubscribes idempotently', () => {
+test('onInsetsChange reports changes once per frame and unsubscribes idempotently', async () => {
   const scope = page({ '--link-miniapp-header-height': '98px' });
+  let reads = 0;
+  const original = scope.getComputedStyle;
+  scope.getComputedStyle = element => { reads++; return original(element); };
   const sdk = createSDK(scope);
   const seen = [];
   const off = sdk.onInsetsChange(insets => seen.push(insets.headerHeight));
-  scope.dispatchEvent(new Event('linkminiapp:insets'));
+  scope.dispatchEvent(new Event('linkminiapp:insets')); await tick();
   assert.deepEqual(seen, []);
   scope.properties['--link-miniapp-header-height'] = '52px';
+  reads = 0;
   scope.dispatchEvent(new Event('linkminiapp:insets'));
   scope.dispatchEvent(new Event('resize'));
+  await tick();
   assert.deepEqual(seen, [52]);
+  assert.equal(reads, 1); // Both events in one task: one read.
   scope.properties['--link-miniapp-header-height'] = '60px';
-  scope.dispatchEvent(new Event('resize'));
+  scope.dispatchEvent(new Event('resize')); await tick();
   assert.deepEqual(seen, [52, 60]);
   off(); off();
   scope.properties['--link-miniapp-header-height'] = '70px';
-  scope.dispatchEvent(new Event('linkminiapp:insets'));
+  scope.dispatchEvent(new Event('linkminiapp:insets')); await tick();
   assert.deepEqual(seen, [52, 60]);
+});
+
+test('insets and layout listeners share one read; a throwing listener does not stop the others', async () => {
+  const scope = Object.assign(page({ '--link-miniapp-header-height': '98px' }), { innerWidth: 390 });
+  let reads = 0, frames = 0;
+  const original = scope.getComputedStyle;
+  scope.getComputedStyle = element => { reads++; return original(element); };
+  scope.requestAnimationFrame = callback => { frames++; setTimeout(callback, 0); };
+  const errors = [];
+  scope.reportError = error => errors.push(error.message);
+  const sdk = createSDK(scope), seen = [];
+  sdk.onInsetsChange(() => { throw new Error('application bug'); });
+  sdk.onInsetsChange(insets => seen.push(['insets', insets.headerHeight]));
+  sdk.onHeaderLayoutChange(layout => seen.push(['layout', layout.height]));
+  scope.properties['--link-miniapp-header-height'] = '52px';
+  reads = 0;
+  scope.dispatchEvent(new Event('linkminiapp:insets'));
+  scope.dispatchEvent(new Event('resize'));
+  await tick();
+  assert.equal(frames, 1); assert.equal(reads, 1);
+  assert.deepEqual(seen, [['insets', 52], ['layout', 52]]);
+  assert.deepEqual(errors, ['application bug']);
 });
 
 test('onInsetsChange requires a function and works after close', async () => {
@@ -119,19 +149,19 @@ test('fullscreen game: free row in landscape, none in the camera band in portrai
   assert.equal(portrait.free, null);
 });
 
-test('onHeaderLayoutChange reports a changed layout once and stops after unsubscribe', () => {
+test('onHeaderLayoutChange reports a changed layout once and stops after unsubscribe', async () => {
   const scope = sized({ ...vars('back', [12, 61, 44, 44]), ...capsule([61, 12, 89, 44]) }, 390);
   const sdk = createSDK(scope), seen = [];
   const off = sdk.onHeaderLayoutChange(layout => seen.push(layout.back));
-  scope.dispatchEvent(new Event('linkminiapp:insets'));
+  scope.dispatchEvent(new Event('linkminiapp:insets')); await tick();
   assert.equal(seen.length, 0);
   for (const name of ['left', 'top', 'width', 'height']) delete scope.properties[`--link-miniapp-back-${name}`];
-  scope.dispatchEvent(new Event('linkminiapp:insets'));
+  scope.dispatchEvent(new Event('linkminiapp:insets')); await tick();
   assert.deepEqual(seen, [null]);
-  scope.innerWidth = 844; scope.dispatchEvent(new Event('resize'));
+  scope.innerWidth = 844; scope.dispatchEvent(new Event('resize')); await tick();
   assert.equal(seen.length, 2);
   off(); off();
-  scope.innerWidth = 390; scope.dispatchEvent(new Event('resize'));
+  scope.innerWidth = 390; scope.dispatchEvent(new Event('resize')); await tick();
   assert.equal(seen.length, 2);
   assert.throws(() => sdk.onHeaderLayoutChange(null), { code: 'INVALID_LAYOUT_LISTENER' });
 });
@@ -141,4 +171,16 @@ test('portrait app with the title hidden: the header row becomes free', () => {
     ...vars('back', [12, 61, 44, 44]), ...capsule([61, 12, 89, 44]) }, 390)).getHeaderLayout();
   assert.equal(layout.title, null);
   assert.deepEqual(layout.free, { x: 64, y: 61, width: 217, height: 44 });
+});
+
+test('positions round down and sizes up, so a rectangle covers its control', () => {
+  const layout = createSDK(sized({ ...vars('back', [12.6, 61.4, 43.2, 43.9]), ...capsule([6.7, 12.5, 88.1, 44]) }, 390)).getHeaderLayout();
+  assert.deepEqual(layout.back, { x: 12, y: 61, width: 44, height: 44 });
+  assert.deepEqual(layout.controls, { x: 289, y: 6, width: 89, height: 44 });
+});
+
+test('a capsule whose touch area starts in the camera band leaves no free row', () => {
+  // Android fullscreen portrait: 32 px capsule with a 44 px touch area from the top edge.
+  const layout = createSDK(sized({ '--link-miniapp-safe-area-top': '40px', ...capsule([0, 12, 88, 44]) }, 412)).getHeaderLayout();
+  assert.equal(layout.free, null);
 });
