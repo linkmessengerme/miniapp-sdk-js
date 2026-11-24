@@ -30,6 +30,7 @@ const MENU_ID = /^[a-z0-9_-]{1,32}$/;
 // Control characters, line and paragraph separators and bidirectional overrides.
 const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/;
 const documents = new WeakMap();
+const UNAVAILABLE = Symbol('transport failed');
 let segmenter;
 const graphemes = text => {
   if (segmenter === undefined) segmenter = typeof Intl?.Segmenter === 'function' ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
@@ -87,9 +88,15 @@ export function documentHeader(scope, failure) {
     bridge.documentId === documentId && scope.location?.origin === origin &&
     (!('top' in scope) || scope.top === scope);
 
-  function stop() {
-    if (stopped) return;
-    stopped = true;
+  // Two ways the header ends. Teardown or replacement of the document (close,
+  // revocation, navigation, another identity) ends the visit: calls then throw
+  // ACCESS_REVOKED. A failed transport to the client only turns the header off for
+  // this document: calls then throw HEADER_NOT_SUPPORTED, as on an older client,
+  // so the page keeps its own UI and the rest of the SDK keeps working.
+  let unavailable = false;
+  function stop(reason) {
+    if (stopped) { if (reason !== UNAVAILABLE) unavailable = false; return; }
+    stopped = true; unavailable = reason === UNAVAILABLE;
     for (const set of Object.values(listeners)) set.clear();
     try { detach?.(); } catch { /* The host is already being torn down. */ }
   }
@@ -108,8 +115,8 @@ export function documentHeader(scope, failure) {
     lastSent = text;
     const packet = Object.freeze({ version: 1, type: 'link-miniapp:header-state',
       document_id: documentId, revision: ++revision, state: Object.freeze({ ...state }) });
-    try { Promise.resolve(bridge.setHeaderState(packet)).catch(stop); }
-    catch { stop(); }
+    try { Promise.resolve(bridge.setHeaderState(packet)).catch(() => stop(UNAVAILABLE)); }
+    catch { stop(UNAVAILABLE); }
   }
   // Calls made together, before the next microtask checkpoint, produce one packet,
   // so the header does not flicker.
@@ -141,7 +148,7 @@ export function documentHeader(scope, failure) {
     }
   }
   function ready() {
-    if (stopped) throw failure('ACCESS_REVOKED');
+    if (stopped) throw failure(unavailable ? 'HEADER_NOT_SUPPORTED' : 'ACCESS_REVOKED');
     if (!bridge) throw failure('HEADER_NOT_SUPPORTED');
     if (!sameDocument()) { stop(); throw failure('ACCESS_REVOKED'); }
   }
@@ -174,7 +181,7 @@ export function documentHeader(scope, failure) {
         detach = bridge.subscribeHeader(receive);
         if (typeof detach !== 'function') throw Error();
         if (stopped) detach();
-      } catch { stop(); }
+      } catch { stop(UNAVAILABLE); }
     },
     setBackButton(mode) {
       option(BACK_BUTTON_MODES.includes(mode)); ready(); change({ back_button: mode });

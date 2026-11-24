@@ -248,7 +248,9 @@ if (import.meta.env.DEV) {
 
 On clients that advertise `header_v1`, a page can change the Link header after
 `init()`. Every call throws `HEADER_NOT_SUPPORTED` on older clients, where the
-header keeps its usual behaviour, so wrap the setup in `try`:
+header keeps its usual behaviour, and also if the client stops accepting header
+changes for this page; `ACCESS_REVOKED` means only that the visit has ended
+(closed, revoked, navigated away). Wrap the setup in `try`:
 
 ```js
 await LinkMiniApp.init();
@@ -340,9 +342,10 @@ Direct calls to the browser adapter may still reject with an ordinary `Error`.
 | `BACK_NOT_SUPPORTED` | Initialize first; Back requires the new SDK and a `back_v1` host |
 | `INVALID_BACK_HANDLER` | Pass a function returning a boolean to `onBack` |
 | `INVALID_INSETS_LISTENER` | Pass a function to `onInsetsChange` |
-| `HEADER_NOT_SUPPORTED` | Initialize first; header control requires a `header_v1` client |
+| `HEADER_NOT_SUPPORTED` | Keep your own UI: the client has no `header_v1`, `init()` has not finished, or the client stopped accepting header changes for this page. The rest of the SDK keeps working |
 | `INVALID_HEADER_OPTION`, `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `INVALID_LAYOUT_LISTENER` | Correct the arguments of the header call |
-| `DEVICE_NOT_SUPPORTED`, `INVALID_DEVICE_LISTENER` | Device state needs `init()` and a `device_v1` client; pass a function |
+| `DEVICE_NOT_SUPPORTED` | Work without device state: no `device_v1`, `init()` has not finished, or the client stopped sending it for this page |
+| `INVALID_DEVICE_LISTENER` | Pass a function to `onDeviceChange` |
 | `MINIMIZE_NOT_AVAILABLE` | The app is already minimized or busy; nothing to do |
 | `TRANSPORT`, `API_TIMEOUT`, `SERVICE_UNAVAILABLE` | Show a network error and let the user retry |
 | `INVALID_CONFIG`, `INVALID_HOST_RESPONSE`, `INVALID_API_RESPONSE` | Correct the integration; discard the response |

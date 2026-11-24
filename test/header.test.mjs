@@ -256,16 +256,28 @@ test('a renewed launch keeps the header; a changed identity stops it', async t =
   assert.throws(() => f.sdk.setFullscreen(false), { code: 'ACCESS_REVOKED' });
 });
 
-test('SDK.close stops the header; a failing transport revokes without leaking details', async t => {
+test('SDK.close stops the header with ACCESS_REVOKED', async t => {
   const f = await fixture(t);
   await f.sdk.close();
   assert.throws(() => f.sdk.setBackButton('close'), { code: 'ACCESS_REVOKED' });
   await assert.rejects(f.sdk.minimize(), { code: 'ACCESS_REVOKED' });
+});
+
+test('a failed send turns off only the header: HEADER_NOT_SUPPORTED, no details, the rest of the SDK works', async t => {
   for (const setHeaderState of [() => { throw Error('private'); }, () => Promise.reject(Error('private'))]) {
     const g = await fixture(t); g.bridge.setHeaderState = setHeaderState;
     g.sdk.setFullscreen(true); await flush();
-    assert.throws(() => g.sdk.setFullscreen(false), error => error instanceof MiniAppError && error.code === 'ACCESS_REVOKED');
+    assert.throws(() => g.sdk.setFullscreen(false), error => error instanceof MiniAppError &&
+      error.code === 'HEADER_NOT_SUPPORTED' && error.message === 'HEADER_NOT_SUPPORTED');
+    assert.throws(() => g.sdk.onPause(() => {}), { code: 'HEADER_NOT_SUPPORTED' });
+    await assert.rejects(g.sdk.minimize(), { code: 'HEADER_NOT_SUPPORTED' });
+    assert.equal(g.sdk.supports('header_v1'), false);
+    assert.equal(g.sdk.supports('back_v1'), true);
+    await g.sdk.init(); // sign-in still works
     assert.equal(g.closeCount, 0);
+    // The document ending afterwards is still reported as the end of the visit.
+    g.scope.dispatchEvent(new Event('pagehide'));
+    assert.throws(() => g.sdk.setFullscreen(false), { code: 'ACCESS_REVOKED' });
   }
 });
 
@@ -323,7 +335,7 @@ test('a broken header transport turns off only the header; init still works', as
   f.bridge.subscribeHeader = () => { throw Error('private'); };
   await f.sdk.init();
   await f.sdk.init();
-  assert.throws(() => f.sdk.setFullscreen(true), { code: 'ACCESS_REVOKED' });
+  assert.throws(() => f.sdk.setFullscreen(true), { code: 'HEADER_NOT_SUPPORTED' });
   assert.equal(f.closeCount, 0);
 });
 

@@ -90,3 +90,14 @@ test('a throwing device listener does not stop the others', async t => {
   f.send(state({ battery_low: true }));
   assert.deepEqual(seen, [true]); assert.deepEqual(errors, ['bug']);
 });
+
+test('a failed device subscription turns off only device state: DEVICE_NOT_SUPPORTED, init still works', async t => {
+  const f = await fixture(t, { init: false });
+  f.bridge.subscribeDevice = () => { throw Error('private'); };
+  await f.sdk.init(); await f.sdk.init();
+  assert.equal(f.sdk.getDevice(), null);
+  assert.equal(f.sdk.supports('device_v1'), false);
+  assert.throws(() => f.sdk.onDeviceChange(() => {}), { code: 'DEVICE_NOT_SUPPORTED' });
+  f.scope.dispatchEvent(new Event('pagehide'));
+  assert.throws(() => f.sdk.onDeviceChange(() => {}), { code: 'ACCESS_REVOKED' });
+});

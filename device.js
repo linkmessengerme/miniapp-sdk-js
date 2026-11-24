@@ -10,6 +10,7 @@ export const PERFORMANCE_CLASSES = Object.freeze(['low', 'mid', 'high']);
 export const THERMAL_STATES = Object.freeze(['nominal', 'fair', 'serious', 'critical']);
 const VERSION = /^[0-9A-Za-z.+-]{1,32}$/;
 const documents = new WeakMap();
+const UNAVAILABLE = Symbol('transport failed');
 
 // Returns a frozen camelCase copy of a valid host state, or null.
 export function deviceState(state) {
@@ -29,9 +30,12 @@ export function documentDevice(scope, failure) {
     bridge.documentId === documentId && scope.location?.origin === origin &&
     (!('top' in scope) || scope.top === scope);
 
-  function stop() {
-    if (stopped) return;
-    stopped = true; current = null;
+  // Teardown or replacement of the document ends the visit (ACCESS_REVOKED); a
+  // failed subscription only turns device state off (DEVICE_NOT_SUPPORTED).
+  let unavailable = false;
+  function stop(reason) {
+    if (stopped) { if (reason !== UNAVAILABLE) unavailable = false; return; }
+    stopped = true; current = null; unavailable = reason === UNAVAILABLE;
     listeners.clear();
     try { detach?.(); } catch { /* The host is already being torn down. */ }
   }
@@ -71,13 +75,13 @@ export function documentDevice(scope, failure) {
         detach = bridge.subscribeDevice(receive);
         if (typeof detach !== 'function') throw Error();
         if (stopped) detach();
-      } catch { stop(); }
+      } catch { stop(UNAVAILABLE); }
     },
     // null before init(), on hosts without device_v1 and before the first state.
     getDevice: () => (api.supported ? current : null),
     onDeviceChange(listener) {
       if (typeof listener !== 'function') throw failure('INVALID_DEVICE_LISTENER');
-      if (stopped) throw failure('ACCESS_REVOKED');
+      if (stopped) throw failure(unavailable ? 'DEVICE_NOT_SUPPORTED' : 'ACCESS_REVOKED');
       if (!bridge) throw failure('DEVICE_NOT_SUPPORTED');
       if (!sameDocument()) { stop(); throw failure('ACCESS_REVOKED'); }
       const entry = value => listener(value);
