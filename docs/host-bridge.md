@@ -519,17 +519,24 @@ fullscreen on or off, compact header) updates all variables and dispatches
 5. **Desktop.** Fullscreen compacts the header inside the Mini App area; it does
    not make the operating-system window fullscreen. Orientation has no effect.
 
+In landscape the ⋯ menu does not fit in one column (about 11 rows on a screen
+about 390 pt high). Show it as two columns: the page's own items on the left, the
+Link items on the right, with 40 pt rows. Without own items, one column of Link
+items.
+
 The capsule is always visible and reachable: it is how the user closes and
 minimizes a game. It does not fade or hide by itself.
 
 System gestures in fullscreen:
 
-- iOS: the home indicator auto-hides (`prefersHomeIndicatorAutoHidden`) and
+- iOS: the status bar does not reappear in fullscreen. The home indicator auto-hides (`prefersHomeIndicatorAutoHidden`) and
   screen edges defer system gestures (`preferredScreenEdgesDeferringSystemGestures`
   = all edges), so a game swipe is not taken by the system on the first try. The
   client turns off its own edge-swipe Back in fullscreen; ✕ and ⋯ stay.
 - Android: immersive mode with transient bars on swipe
-  (`BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`). System Back cannot be turned off;
+  (`BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`). Transient bars lie over the game;
+  while they are visible the capsule moves below the status bar and returns with
+  them. The variables do not change for transient bars. System Back cannot be turned off;
   it keeps following `back_v1`, so a game should open its pause menu and return
   `true`.
 - Desktop: Esc is not taken from a focused page; the page handles it itself.
