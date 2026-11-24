@@ -20,7 +20,7 @@ export const MENU_ICONS = Object.freeze(['settings', 'info', 'help', 'star', 'bo
   'search', 'bell', 'user', 'gift', 'cart', 'list', 'chat', 'sound', 'mute', 'pause', 'play', 'restart']);
 export const HEADER_EVENTS = Object.freeze(['menu_item', 'minimize', 'restore', 'pause', 'resume', 'sound', 'closing']);
 // Why the page is not in front: minimized, Link in the background, screen locked,
-// an interruption such as a call or Siri, or a Link overlay (menu, dialog, sheet, checkout).
+// an interruption such as a call or Siri, or a Link overlay (menu, dialog, sheet).
 export const PAUSE_REASONS = Object.freeze(['minimized', 'background', 'locked', 'interrupted', 'overlay']);
 // Who closes the app: the user, Link making room for another app, or a revocation
 // (access withdrawn, sign-out, account switch). LinkMiniApp.close() sends nothing.

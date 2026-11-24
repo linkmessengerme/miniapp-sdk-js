@@ -107,7 +107,7 @@ export interface MiniAppSDK {
   isMuted(): boolean;
   /** Called when the page stops being in front: minimized, Link in the background,
    * screen locked, an interruption such as a call, or a Link overlay over the page
-   * (⋯ menu, dialog, sheet, checkout). Pause a game here. Not repeated while paused. */
+   * (⋯ menu, dialog, sheet). Pause a game here. Not repeated while paused. */
   onPause(listener: (reason: PauseReason) => void): () => void;
   /** Called when nothing covers the page any more. */
   onResume(listener: () => void): () => void;

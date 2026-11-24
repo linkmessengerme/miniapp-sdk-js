@@ -424,7 +424,7 @@ interface HeaderHostBridge {
 
 The request method `minimize` (same envelope as `close`) minimizes the app and
 returns an empty result, or `error: { code: 'MINIMIZE_NOT_AVAILABLE' }` when the
-app is already minimized, closing, or behind a Link dialog or checkout. Without
+app is already minimized, closing, or behind a Link dialog. Without
 the capability the SDK throws `HEADER_NOT_SUPPORTED` and sends nothing, so older
 hosts keep their behaviour.
 
@@ -653,7 +653,7 @@ checks. It is an executable contract example, not a client implementation.
 
 - `pause` / `resume`: the host keeps a set of reasons — `minimized`, `background`
   (Link left the screen), `locked`, `interrupted` (call, Siri, alarm, audio focus
-  lost) and `overlay` (the ⋯ menu, a Link dialog or sheet, checkout, share). It
+  lost) and `overlay` (the ⋯ menu, a Link dialog or sheet, share). It
   sends `pause` with the reason that made the set non-empty and `resume` when the
   set is empty again; reason changes in between are not sent. Send `pause` before
   the overlay or animation appears. After `minimize` the host also sends `pause`.
