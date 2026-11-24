@@ -1,6 +1,6 @@
 {
   "name": "@link-apps/miniapp",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Link Mini Apps JavaScript SDK with an optional browser host adapter.",
   "license": "MIT",
   "author": "Link Messenger",
