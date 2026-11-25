@@ -701,6 +701,43 @@ checks. It is an executable contract example, not a client implementation.
   account switch). The host keeps the page running for 300 ms after sending, then
   tears it down. Not sent for `LinkMiniApp.close()`.
 
+### Whole screen on computers (header_v1)
+
+Desktop hosts let a page use the standard Fullscreen API to cover the whole
+monitor. No new message: the page calls `element.requestFullscreen()` and
+receives `fullscreenchange`, `document.fullscreenElement` and `:fullscreen` as
+in a browser. `document.fullscreenEnabled` is `true` only where the host
+supports this.
+
+- Only after a user activation (click or key press), as the engine requires.
+  Otherwise the promise rejects. Do not allow keyboard lock or pointer lock
+  without a gesture.
+- The host makes its own window full screen, hides its other panels and gives
+  the WebView the whole window. It must not let the engine move the page into a
+  window of its own: macOS WebKit does that by default (`WKFullScreenWindow`),
+  and there the Link controls are gone. On Windows, handle WebView2
+  `ContainsFullScreenElementChanged`; by default the element only fills the
+  WebView bounds.
+- The ⋯ | ⌄ capsule stays: shown on mouse movement, hidden after 3 seconds
+  without movement, not while the pointer is over it, the ⋯ menu is open or it
+  has keyboard focus. Tab from the page or F6 / ⌃F6 shows it. While hidden it
+  takes no clicks. The controls rectangle (`--link-miniapp-controls-*`,
+  `getHeaderLayout().controls`) does not change when it hides. With Reduce
+  Motion, no animation.
+- On every entry, show for 3 seconds «{app name} на весь экран · Esc — выйти»,
+  so a full-screen page cannot pass itself off as Link or the system.
+- Leaving is always possible: Escape (consumed by the host, not sent to the page
+  and not a `back_v1` gesture), «Выйти из полноэкранного режима» at the top of
+  the Link group of the ⋯ menu, ⌃⌘F / F11, and ⌄, which leaves and minimizes.
+  The host also leaves on minimize, switching to another app, close, sign-out
+  and account switch.
+- «На весь экран» in the ⋯ menu and ⌃⌘F / F11 appear only for an app that
+  called `requestFullscreen()` during this launch, so the user can go back after
+  Escape.
+- `fullscreen: true` in the header state and this mode coexist: leaving the
+  whole screen returns to the in-window capsule.
+- Phones: not used; `fullscreen: true` already covers the screen.
+
 ## Device extension (unreleased)
 
 `device_v1` gives a page coarse device state so it can save power and keep a game

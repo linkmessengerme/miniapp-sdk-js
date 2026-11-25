@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Docs: on computers, the standard `element.requestFullscreen()` puts a Mini App
+  on the whole screen with the Link window, keeping the ⋯ | ⌄ capsule, which
+  hides after 3 seconds without mouse movement. No API change. Host rules are in
+  `docs/host-bridge.md`, «Whole screen on computers».
+
 ## 0.6.0 — 2026-11-25
 
 - `share_v1`: `share({ start, text })` opens Link's chat picker with a link to
