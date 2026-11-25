@@ -264,7 +264,7 @@ try {
   LinkMiniApp.onMinimize(() => game.pause());  // the page keeps running
   LinkMiniApp.onRestore(() => game.resume());
   LinkMiniApp.setHeaderStyle({ icons: 'light' }); // a dark page
-  LinkMiniApp.setFullscreen(true);             // games: a small ⋯ | ✕ capsule
+  LinkMiniApp.setFullscreen(true);             // games: a small ⋯ | ⌄ capsule
   LinkMiniApp.setOrientation('landscape');     // games played sideways
 } catch (error) {
   if (error.code !== 'HEADER_NOT_SUPPORTED') throw error;
@@ -281,7 +281,8 @@ try {
   in the `MenuIcon` type. The list replaces the previous one; `[]` removes it.
 - `minimize()` minimizes the app as ⌄ does.
 - `setFullscreen(true)` hides the title, the left button and the system bars; one
-  small ⋯ | ✕ capsule stays in the top right corner. Keep only that corner clear:
+  small ⋯ | ⌄ capsule stays in the top right corner (Close is in the ⋯ menu).
+  Keep only that corner clear:
   `getInsets().controls` (or `--link-miniapp-controls-top`, `-right`, `-width`,
   `-height`) gives its rectangle.
 - `setOrientation('landscape' | 'portrait' | 'auto')` turns the Mini App screen.

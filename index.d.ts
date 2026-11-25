@@ -88,8 +88,8 @@ export interface MiniAppSDK {
    * header row; Link then shows the name at the top of the ⋯ menu. Default 'shown'.
    * Only the keys given change. */
   setHeaderStyle(style: HeaderStyle): void;
-  /** For games: the header shrinks to a small ⋯ | ✕ capsule in the top right
-   * corner. The title and the left button are hidden; minimizing moves to the
+  /** For games: the header shrinks to a small ⋯ | ⌄ capsule in the top right
+   * corner. The title and the left button are hidden; closing stays in the
    * menu. headerHeight from getInsets() changes with it. Default false. */
   setFullscreen(enabled: boolean): void;
   /** 'landscape' or 'portrait' turns the Mini App screen and keeps it so while
@@ -233,7 +233,7 @@ export interface HeaderLayout {
   readonly back: HeaderRect | null;
   /** The capsule with the app icon and name; null when hidden, in fullscreen or on older hosts. */
   readonly title: HeaderRect | null;
-  /** The ⋯ | ⌄ or ⋯ | ✕ capsule; null only on older hosts. */
+  /** The ⋯ | ⌄ capsule; null only on older hosts. */
   readonly controls: HeaderRect | null;
   /** The gap in the header row between the left elements and the capsule, with
    * 8 px margins; null when narrower than 48 px. The page may put its own
