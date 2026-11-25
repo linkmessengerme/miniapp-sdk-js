@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 — 2026-11-25
 
 - `share_v1`: `share({ start, text })` opens Link's chat picker with a link to
   the same app, `https://linkm.me/miniapps/<slug>?start=<start>`, and an

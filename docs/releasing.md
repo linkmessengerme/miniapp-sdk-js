@@ -4,6 +4,15 @@ The initial release is `@link-apps/miniapp@0.1.0`. npm publication is manual.
 Run checks and create candidate archives locally. GitHub Actions is currently
 disabled. See [verification status](verification.md).
 
+## 0.6.0: sharing in Link chats
+
+Version 0.6.0 adds `share()` and `share_v1`. It changes no existing behavior:
+until a Link client advertises `share_v1` for an app that enabled sharing,
+`share()` rejects with `SHARE_NOT_SUPPORTED` and sends nothing. Publish it
+before the internal SDK release that pins this exact version; an application
+gets `share()` through the internal SDK only after that bump. Link clients
+advertise the capability independently of this release.
+
 ## 0.5.1: header and device transport errors
 
 Version 0.5.1 fixes only the error code after a failed `header_v1` or `device_v1`
