@@ -12,7 +12,7 @@ assert.equal(typeof LinkMiniApp.onBack, 'function');
 assert.equal(LinkMiniApp.pay, undefined);
 for (const method of ['setBackButton', 'setCloseConfirmation', 'setMenuItems', 'onMenuItem', 'onMinimize',
   'onRestore', 'minimize', 'setHeaderStyle', 'setFullscreen', 'setOrientation', 'getHeaderLayout', 'onHeaderLayoutChange',
-  'setSoundControl', 'onSoundChange', 'isMuted', 'onPause', 'onResume', 'isPaused', 'onClosing', 'supports', 'getDevice', 'onDeviceChange']) assert.equal(typeof LinkMiniApp[method], 'function');
+  'setSoundControl', 'onSoundChange', 'isMuted', 'onPause', 'onResume', 'isPaused', 'onClosing', 'supports', 'getDevice', 'onDeviceChange', 'share']) assert.equal(typeof LinkMiniApp[method], 'function');
 assert.throws(() => createSDK({}).setBackButton('close'), { code: 'HEADER_NOT_SUPPORTED' });
 assert.equal(createSDK({}).supports('header_v1'), false);
 assert.equal(createSDK({}).getDevice(), null);

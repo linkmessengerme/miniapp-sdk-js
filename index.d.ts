@@ -117,7 +117,7 @@ export interface MiniAppSDK {
   onClosing(listener: (reason: ClosingReason) => void): () => void;
 
   /** Whether a host extension is available: false before init() and on hosts that
-   * do not provide all of it. 'back_v1', 'header_v1', 'device_v1', … */
+   * do not provide all of it. 'back_v1', 'header_v1', 'device_v1', 'share_v1', … */
   supports(capability: string): boolean;
   /** Coarse device state from device_v1; null before init(), on older hosts and
    * until the host has sent it. */
@@ -125,6 +125,38 @@ export interface MiniAppSDK {
   /** Called when the device state changes. Throws DEVICE_NOT_SUPPORTED without
    * device_v1. Returns an idempotent unsubscribe. */
   onDeviceChange(listener: (state: DeviceState) => void): () => void;
+  /**
+   * share_v1: opens Link's own chat picker with a link to this same app,
+   * `https://linkm.me/miniapps/<slug>?start=<start>`, and the text above it. The
+   * user picks chats, may edit or remove the text, and sends. Call it from a tap:
+   * without a user gesture it fails with USER_GESTURE_REQUIRED. The page never
+   * names the URL and never learns who received it. Rejects with
+   * SHARE_NOT_SUPPORTED when `supports('share_v1')` is false (the app has not
+   * enabled sharing in Console, or the host is older), SHARE_IN_PROGRESS while
+   * a picker is open and INVALID_SHARE_REQUEST for invalid options.
+   */
+  share(options?: ShareOptions): Promise<ShareResult>;
+}
+
+export interface ShareOptions {
+  /** Delivered to whoever opens the link as `startParam`: 1 to 256 Latin letters,
+   * digits and `._-`. Absent opens the app's first screen. */
+  readonly start?: string;
+  /** Plain text shown above the link, at most 500 characters, not blank. No
+   * control characters other than tab and line feed. The user can change it. */
+  readonly text?: string;
+}
+
+/** 'shared' once the message went to at least one chat; 'cancelled' otherwise. */
+export interface ShareResult {
+  readonly outcome: 'shared' | 'cancelled';
+}
+
+export interface SharePacket {
+  readonly version: 1;
+  readonly request_id: string;
+  readonly method: 'share';
+  readonly params: Readonly<{ start?: string; text?: string }>;
 }
 
 export type PauseReason = 'minimized' | 'background' | 'locked' | 'interrupted' | 'overlay';

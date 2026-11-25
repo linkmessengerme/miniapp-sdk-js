@@ -82,6 +82,34 @@ Use `context.user` for display. To sign in to your own backend, send `idToken`
 to your HTTPS endpoint, verify it on the server, and create your own session.
 The Mini App never receives the primary Link account token.
 
+## Sharing in Link chats (unreleased)
+
+`share()` opens Link's chat picker with a link to your app and an optional text.
+The user picks chats, may edit the text, and sends. Use it to invite friends to
+a game room or to send an episode:
+
+```js
+inviteButton.addEventListener('click', async () => {
+  if (!LinkMiniApp.supports('share_v1')) return showCopyLink();
+  const { outcome } = await LinkMiniApp.share({ start: `room.${roomId}`, text: 'Join my room' });
+  if (outcome === 'shared') showToast('Invitation sent');
+});
+```
+
+The message carries `https://linkm.me/miniapps/<slug>?start=<start>`. Whoever
+taps it opens your app with that value in `context.startParam` (see
+[Opening a particular screen](#opening-a-particular-screen)), so the room or
+episode id must be something your app can look up and check by itself.
+
+- Enable sharing for the environment in Console. Live needs review.
+  `supports('share_v1')` is false until the app enables it and on older clients.
+- Call it from a tap; otherwise it fails with `USER_GESTURE_REQUIRED`.
+- `outcome` is `shared` or `cancelled`. Your app never learns who received the
+  link or how many chats.
+- The link always leads to your own app; you cannot share another URL.
+- `start` follows the `startParam` rules; `text` is plain text up to 500
+  characters with no control characters other than tab and line feed.
+
 ## Permissions and fresh data
 
 `getUserInfo()` calls `init()` to obtain the current scoped access token, then
@@ -347,6 +375,10 @@ Direct calls to the browser adapter may still reject with an ordinary `Error`.
 | `INVALID_HEADER_OPTION`, `INVALID_MENU_ITEMS`, `INVALID_HEADER_LISTENER`, `INVALID_LAYOUT_LISTENER` | Correct the arguments of the header call |
 | `DEVICE_NOT_SUPPORTED` | Work without device state: no `device_v1`, `init()` has not finished, or the client stopped sending it for this page |
 | `INVALID_DEVICE_LISTENER` | Pass a function to `onDeviceChange` |
+| `SHARE_NOT_SUPPORTED` | Offer your own "copy link": sharing is off for the app in Console, or the client has no `share_v1` |
+| `SHARE_IN_PROGRESS` | A chat picker is already open; wait for its result |
+| `USER_GESTURE_REQUIRED` | Call `share()` directly from a tap |
+| `INVALID_SHARE_REQUEST` | Correct `start` or `text` |
 | `MINIMIZE_NOT_AVAILABLE` | The app is already minimized or busy; nothing to do |
 | `TRANSPORT`, `API_TIMEOUT`, `SERVICE_UNAVAILABLE` | Show a network error and let the user retry |
 | `INVALID_CONFIG`, `INVALID_HOST_RESPONSE`, `INVALID_API_RESPONSE` | Correct the integration; discard the response |

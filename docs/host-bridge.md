@@ -728,3 +728,77 @@ Do not send more than one state per second; coalesce. The SDK ignores malformed
 and repeated states and exposes them only after `init()` in the authorized main
 document. `supports(name)` in the SDK is true only for an extension the host
 provides completely.
+
+## Share extension (unreleased)
+
+`share_v1` lets a page ask Link to share a link to the same Mini App in Link
+chats. The page never names a URL or a chat. Link builds the link, shows its
+own chat picker, and the user sends the message. The page learns only whether
+it was sent.
+
+Advertise `share_v1` in `capabilities` only when the READY launch has
+`web.share_link: true` (the app enabled sharing in Console and passed review for
+Live). Without the capability the SDK throws `SHARE_NOT_SUPPORTED` and sends
+nothing. The flag cannot change during a document: a configuration change
+already closes the bridge.
+
+Request:
+
+```json
+{
+  "version": 1,
+  "request_id": "<request-uuid>",
+  "method": "share",
+  "params": { "start": "room.7f3a", "text": "Join my room" }
+}
+```
+
+Both fields are optional; `params` may be `{}`, which shares the app itself.
+No other key is allowed.
+
+| Field | Rule |
+| --- | --- |
+| `start` | `^[A-Za-z0-9._-]{1,256}$`, the same as `start_param` of a launch |
+| `text` | 1–500 Unicode code points, not only whitespace, well-formed UTF-16; no C0/C1 controls except tab and line feed, no bidi embeddings, overrides or isolates (U+202A–U+202E, U+2066–U+2069) |
+
+Response:
+
+```json
+{ "version": 1, "request_id": "<same-request-uuid>", "result": { "outcome": "shared" } }
+```
+
+`outcome` is `shared` when the message went to at least one chat and
+`cancelled` otherwise. Never return the chats, recipients, their number or
+anything else; the SDK drops other fields anyway. Errors use `error.code`:
+`INVALID_SHARE_REQUEST`, `SHARE_IN_PROGRESS`, `USER_GESTURE_REQUIRED`,
+`SHARE_NOT_SUPPORTED`, `ACCESS_REVOKED`.
+
+### What the host does
+
+1. Validate `params` again by the table above. Never trust the SDK's checks.
+2. Build the link itself from the launch, never from page data:
+   `https://linkm.me/miniapps/<slug>` for Live, with `?env=test` for Test, plus
+   `start` when present (`?start=` or `&start=`). `<slug>` is the slug of the
+   app that owns this document.
+3. Open the same chat picker as the ⋯ menu item "Share". Show the text in an
+   editable field above the link preview; the user can change or delete it.
+   Sending is the user's tap in the picker; the page never sends on its own.
+4. Send an ordinary message: the text, a line feed, the link. The recipient's
+   client draws the usual Mini App link card from `GET /mini-apps/info`, and a
+   tap opens the app with `start` (launch source `LAUNCH_SOURCE_LINK`).
+5. Resolve with `shared` or `cancelled` when the picker closes.
+
+Rules:
+
+- Only the authorized main document of a visible, front Mini App. One picker
+  per document: answer a second request with `SHARE_IN_PROGRESS`.
+- Require a recent user tap in the page, as for `pay`, and answer
+  `USER_GESTURE_REQUIRED` otherwise. Opening the picker on page load or on a
+  timer is not allowed.
+- While the picker is open the page is covered: send `pause` with reason
+  `overlay` (header_v1) and `resume` when it closes.
+- Navigation, closing, revocation or another account discards the result;
+  close the picker. Emit `linkminiapp:closed` if the document stays alive.
+- The SDK waits up to 10 minutes. After that it reports `HOST_TIMEOUT`; the
+  host closes the picker at the same time or answers the next request with
+  `SHARE_IN_PROGRESS` while it is still open.

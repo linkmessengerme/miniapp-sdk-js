@@ -265,3 +265,28 @@ test('close acknowledgment rejects pending payments and revokes the document cha
   assert.ok(f.events.some(event => event.type === 'linkminiapp:closed'));
   await assert.rejects(f.bridge.request(paymentPacket()), /ACCESS_REVOKED/);
 });
+
+const sharePacket = (params = { start: 'room.7', text: 'Join me' }) => ({ version: 1, request_id: randomUUID(), method: 'share', params });
+
+test('share goes through the document port with only start and text', async t => {
+  const f = paymentConnection(t, ['share_v1']);
+  const packet = sharePacket();
+  const pending = f.bridge.request({ ...packet, token: 'secret', url: 'https://evil.example' });
+  const [sent] = await once(f.port, 'message');
+  assert.deepEqual(sent, packet);
+  f.port.postMessage({ version: 1, request_id: sent.request_id, result: { outcome: 'shared' } });
+  assert.deepEqual((await pending).result, { outcome: 'shared' });
+  assert.equal(f.sent.length, 1);
+});
+
+test('browser hosts without share_v1 and invalid share params receive nothing', async t => {
+  const old = paymentConnection(t, ['payments_v1']);
+  await assert.rejects(old.bridge.request(sharePacket()), /SHARE_NOT_SUPPORTED/);
+  const f = paymentConnection(t, ['share_v1']);
+  for (const params of [undefined, { start: 'a b' }, { text: '' }, { url: 'https://evil.example' }, { start: 'a', chat: 'x' }]) {
+    await assert.rejects(f.bridge.request({ ...sharePacket(), params }), /INVALID_SHARE_REQUEST/);
+  }
+  let received = 0; f.port.on('message', () => { received++; });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(received, 0);
+});

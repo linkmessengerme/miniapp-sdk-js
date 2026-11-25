@@ -2,6 +2,7 @@ import { documentBack } from './back.js';
 import { readInsets, subscribeInsets, readHeaderLayout, subscribeHeaderLayout } from './insets.js';
 import { documentHeader } from './header.js';
 import { documentDevice } from './device.js';
+import { SHARE_CAPABILITY, SHARE_TIMEOUT_MS, shareParams, shareResult } from './share.js';
 
 export class MiniAppError extends Error {
   constructor(code) { super(code); this.name = "MiniAppError"; this.code = code; }
@@ -21,6 +22,7 @@ const MAX_USERINFO_BYTES = 64 * 1024;
 const HOST_ERROR_CODES = new Set([
   "LINK_REQUIRED", "AUTHORIZATION_REQUIRED", "ACCESS_REVOKED", "ORIGIN_NOT_ALLOWED",
   "NOT_MAIN_FRAME", "HOST_TIMEOUT", "SERVICE_UNAVAILABLE", "HOST_ERROR", "INVALID_HOST_RESPONSE",
+  "SHARE_NOT_SUPPORTED", "SHARE_IN_PROGRESS", "INVALID_SHARE_REQUEST", "USER_GESTURE_REQUIRED",
 ]);
 
 function isRecord(value) {
@@ -99,13 +101,13 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
   const back = documentBack(scope, code => new MiniAppError(code));
   const header = documentHeader(scope, code => new MiniAppError(code));
   const device = documentDevice(scope, code => new MiniAppError(code));
-  let pending, pendingUserInfo, current, generation = 0, closed = false;
+  let pending, pendingUserInfo, pendingShare, current, generation = 0, closed = false;
   // The browser adapter can be revoked while an API response is in flight.
   // Invalidate that response even when the application has not called close().
   scope.addEventListener?.("linkminiapp:closed", () => {
     closed = true; generation++; current = undefined;
   }, { once: true });
-  async function request(method) {
+  async function request(method, params, timeoutMs = 10000) {
     if ("top" in scope && scope.top !== scope) throw new MiniAppError("NOT_MAIN_FRAME");
     const bridge = scope.__LinkMiniAppHost;
     if (!bridge || typeof bridge.request !== "function") throw new MiniAppError("LINK_REQUIRED");
@@ -113,13 +115,15 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
     let timer;
     try {
       let response = await Promise.race([
-        Promise.resolve().then(() => bridge.request({ version: 1, request_id: requestId, method })).catch(error => {
+        Promise.resolve().then(() => bridge.request(params === undefined
+          ? { version: 1, request_id: requestId, method }
+          : { version: 1, request_id: requestId, method, params })).catch(error => {
           // Native and browser adapters may reject with ordinary errors. Never
           // expose their arbitrary messages, causes, or response payloads.
           const code = error?.code ?? error?.message;
           throw new MiniAppError(HOST_ERROR_CODES.has(code) ? code : "HOST_ERROR");
         }),
-        new Promise((_, reject) => { timer = setTimeout(() => reject(new MiniAppError("HOST_TIMEOUT")), 10000); })
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new MiniAppError("HOST_TIMEOUT")), timeoutMs); })
       ]);
       if (typeof response === "string") {
         if (response.length > 65536) throw new MiniAppError("INVALID_HOST_RESPONSE");
@@ -254,6 +258,30 @@ export function createSDK(scope = globalThis, { apiBaseUrl = DEFAULT_API_BASE } 
       if (closed) throw new MiniAppError("ACCESS_REVOKED");
       header.ready();
       await request("minimize");
+    },
+    // share_v1: Link's own chat picker with a link to this app; see share.js.
+    share(options) {
+      let params;
+      try { params = shareParams(options); } catch (code) { return Promise.reject(new MiniAppError(code)); }
+      if (closed || back.closed) return Promise.reject(new MiniAppError("ACCESS_REVOKED"));
+      if ("top" in scope && scope.top !== scope) return Promise.reject(new MiniAppError("NOT_MAIN_FRAME"));
+      if (pendingShare) return Promise.reject(new MiniAppError("SHARE_IN_PROGRESS"));
+      // Checked before any await. The host enforces its own gesture rule as well.
+      if (scope.navigator?.userActivation?.isActive === false) return Promise.reject(new MiniAppError("USER_GESTURE_REQUIRED"));
+      const bridge = scope.__LinkMiniAppHost;
+      pendingShare = (async () => {
+        const before = await sdk.init();
+        if (scope.__LinkMiniAppHost !== bridge) throw new MiniAppError("ACCESS_REVOKED");
+        if (!Array.isArray(bridge.capabilities) || !bridge.capabilities.includes(SHARE_CAPABILITY)) throw new MiniAppError("SHARE_NOT_SUPPORTED");
+        let result;
+        try { result = shareResult(await request("share", params, SHARE_TIMEOUT_MS)); }
+        catch (error) { throw error instanceof MiniAppError ? error : new MiniAppError(error); }
+        // A refreshed launch is fine; another account, app or environment is not.
+        if (closed || back.closed || scope.__LinkMiniAppHost !== bridge || !current || current.appId !== before.appId ||
+            current.environment !== before.environment || current.user.sub !== before.user.sub) throw new MiniAppError("ACCESS_REVOKED");
+        return result;
+      })().finally(() => { pendingShare = undefined; });
+      return pendingShare;
     },
     // A capability is supported only after init() and only when the host provides all of it.
     supports(name) {

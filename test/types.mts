@@ -1,6 +1,7 @@
 import LinkMiniApp, { createSDK, type MiniAppUserInfo, type BackContext, type BackHandler,
   type BackEventPacket, type BackAckPacket, type BackHostBridge, type MiniAppInsets, type MenuItem,
-  type HeaderStatePacket, type HeaderEventPacket, type HeaderHostBridge, type HeaderLayout, type HeaderRect, type DeviceState, type PauseReason, type ClosingReason, type DeviceHostBridge } from "@link-apps/miniapp";
+  type HeaderStatePacket, type HeaderEventPacket, type HeaderHostBridge, type HeaderLayout, type HeaderRect, type DeviceState, type PauseReason, type ClosingReason, type DeviceHostBridge,
+  type ShareOptions, type ShareResult, type SharePacket } from "@link-apps/miniapp";
 import { installHeaderPreview, type HeaderPreview } from "@link-apps/miniapp/preview";
 import { installBrowserHost, type BrowserHostConnection } from "@link-apps/miniapp/browser-host";
 
@@ -102,6 +103,18 @@ async function consume() {
   installBrowserHost(window, {});
   const connection: BrowserHostConnection = { type: 'link-miniapp:connected', version: 1,
     nonce: 'nonce', capabilities: ['payments_v1', 'back_v1'] };
+  const shared: ShareResult = await LinkMiniApp.share({ start: 'room.7', text: 'Join me' });
+  const outcome: 'shared' | 'cancelled' = shared.outcome;
+  await LinkMiniApp.share();
+  const options: ShareOptions = { start: 'ep.42' };
+  await createSDK(window).share(options);
+  void outcome;
+  // @ts-expect-error The page cannot choose the URL.
+  await LinkMiniApp.share({ url: 'https://example.com' });
+  // @ts-expect-error The result is read-only.
+  shared.outcome = 'shared';
+  const sharePacket: SharePacket = { version: 1, request_id: 'r', method: 'share', params: { start: 'a' } };
+  void sharePacket;
   // @ts-expect-error The public SDK does not expose private payment methods.
   await LinkMiniApp.pay({ paymentSessionId: 'session' });
   return { phone, verified, installed, connection };
