@@ -313,6 +313,14 @@ try {
   Keep only that corner clear:
   `getInsets().controls` (or `--link-miniapp-controls-top`, `-right`, `-width`,
   `-height`) gives its rectangle.
+- On computers, the standard `element.requestFullscreen()` (from a click or key
+  press) puts the app on the whole screen: the Link window goes full screen with
+  only your page and the ⋯ | ⌄ capsule. Nothing to call in this package: engines
+  such as Phaser and Unity WebGL and video players already use it. Check
+  `document.fullscreenEnabled` and listen to `fullscreenchange`. The capsule hides
+  after 3 seconds without mouse movement; its rectangle in `getHeaderLayout()`
+  stays the same, so keep that corner clear. Escape leaves full screen and does
+  not reach your page. On phones `setFullscreen(true)` already covers the screen.
 - `setOrientation('landscape' | 'portrait' | 'auto')` turns the Mini App screen.
   Link returns to its own orientation when the app is minimized or closed. On
   phones in landscape the Link header is always compact.
