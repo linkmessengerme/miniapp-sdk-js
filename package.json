@@ -46,6 +46,7 @@
     "back.js",
     "header.js",
     "device.js",
+    "share.js",
     "browser-host.js",
     "browser-host.d.ts",
     "insets.js",

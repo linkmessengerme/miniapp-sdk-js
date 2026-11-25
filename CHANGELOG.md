@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- `share_v1`: `share({ start, text })` opens Link's chat picker with a link to
+  the same app, `https://linkm.me/miniapps/<slug>?start=<start>`, and an
+  editable text. Returns `{ outcome: 'shared' | 'cancelled' }` and nothing
+  about the recipients. Requires a user gesture, one picker at a time, and the
+  app's sharing setting in Console; otherwise `USER_GESTURE_REQUIRED`,
+  `SHARE_IN_PROGRESS` or `SHARE_NOT_SUPPORTED`. Invalid options fail with
+  `INVALID_SHARE_REQUEST` before anything is sent. The browser adapter forwards
+  `share` when the host advertises `share_v1`.
+
 ## 0.5.1 — 2026-11-24
 
 - A failed header or device transport turns off only that extension for the

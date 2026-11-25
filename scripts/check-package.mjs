@@ -16,7 +16,7 @@ try {
   const packed = JSON.parse(npm(['pack', '--json', '--ignore-scripts', '--pack-destination', temporary]));
   const archive = Array.isArray(packed) ? packed[0] : packed['@link-apps/miniapp'];
   assert.deepEqual(archive.files.map(file => file.path).sort(), [
-    'CHANGELOG.md', 'LICENSE', 'README.md', 'back.js', 'header.js', 'device.js', 'browser-host.d.ts', 'browser-host.js',
+    'CHANGELOG.md', 'LICENSE', 'README.md', 'back.js', 'header.js', 'device.js', 'share.js', 'browser-host.d.ts', 'browser-host.js',
     'insets.js', 'preview.d.ts', 'preview.js', 'ui.css',
     'index.d.ts', 'index.js', 'package.json',
   ].sort());

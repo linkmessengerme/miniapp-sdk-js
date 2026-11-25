@@ -1,6 +1,7 @@
 // Optional adapter for an explicitly trusted browser host. Native SDK behavior
 // is unchanged. Only a document-bound MessagePort carries scoped credentials.
 import { BACK_CAPABILITY, isBackEvent, isBackAck } from './back.js';
+import { SHARE_CAPABILITY, SHARE_TIMEOUT_MS, isShareParams } from './share.js';
 
 const PAYMENTS_CAPABILITY = 'payments_v1';
 const CHECKOUT_TIMEOUT_MS = 30 * 60 * 1000;
@@ -71,7 +72,7 @@ export function installBrowserHost(scope = globalThis, { hostOrigin } = {}) {
         event_id: packet.event_id, action: packet.action });
     },
     async request(packet) {
-      if (closed || packet?.version !== 1 || !['init', 'close', 'pay'].includes(packet.method) || typeof packet.request_id !== 'string') throw Error('ACCESS_REVOKED');
+      if (closed || packet?.version !== 1 || !['init', 'close', 'pay', 'share'].includes(packet.method) || typeof packet.request_id !== 'string') throw Error('ACCESS_REVOKED');
       const forwarded = { version: 1, request_id: packet.request_id, method: packet.method };
       if (packet.method === 'pay') {
         const params = packet.params;
@@ -80,11 +81,16 @@ export function installBrowserHost(scope = globalThis, { hostOrigin } = {}) {
             params.checkout_session_id === '00000000-0000-0000-0000-000000000000') throw Error('INVALID_PAYMENT_REQUEST');
         forwarded.params = { checkout_session_id: params.checkout_session_id };
       }
+      if (packet.method === 'share') {
+        if (!isShareParams(packet.params)) throw Error('INVALID_SHARE_REQUEST');
+        forwarded.params = { ...packet.params };
+      }
       await connection;
       if (closed) throw Error('ACCESS_REVOKED');
       if (forwarded.method === 'pay' && !capabilities.includes(PAYMENTS_CAPABILITY)) throw Error('PAYMENTS_NOT_SUPPORTED');
+      if (forwarded.method === 'share' && !capabilities.includes(SHARE_CAPABILITY)) throw Error('SHARE_NOT_SUPPORTED');
       return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => { requests.delete(forwarded.request_id); reject(Error('HOST_TIMEOUT')); }, forwarded.method === 'pay' ? CHECKOUT_TIMEOUT_MS : 8000);
+        const timer = setTimeout(() => { requests.delete(forwarded.request_id); reject(Error('HOST_TIMEOUT')); }, ({ pay: CHECKOUT_TIMEOUT_MS, share: SHARE_TIMEOUT_MS })[forwarded.method] ?? 8000);
         requests.set(forwarded.request_id, { resolve, reject, timer, method: forwarded.method });
         port.postMessage(forwarded);
       });
