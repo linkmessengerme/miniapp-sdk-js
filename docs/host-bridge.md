@@ -561,10 +561,11 @@ fullscreen on or off, compact header) updates all variables and dispatches
    the notch. The page pads left and right with the safe-area variables.
 3. **Game, fullscreen, portrait.** The status bar and the Android navigation bar
    are hidden; an edge swipe shows them for a moment. The left button and the
-   title are hidden; one small ⋯ | ✕ capsule (32 pt high) stays in the top right
+   title are hidden; one small ⋯ | ⌄ capsule (32 pt high) stays in the top right
    corner. Where the top safe area is a notch or Dynamic Island band, the capsule
    sits in that band beside it, so it takes no space from the game; otherwise
-   8 pt from the top edge. Minimize moves into the ⋯ menu.
+   8 pt from the top edge. Close stays in the ⋯ menu: a stray tap in the corner
+   only minimizes the game.
 4. **Game, fullscreen, landscape.** Same capsule, 8 pt from the top edge and from
    the right safe area. No status bar. The game keeps only the capsule rectangle
    clear and uses the rest of the top row.
@@ -584,7 +585,7 @@ System gestures in fullscreen:
 - iOS: the status bar does not reappear in fullscreen. The home indicator auto-hides (`prefersHomeIndicatorAutoHidden`) and
   screen edges defer system gestures (`preferredScreenEdgesDeferringSystemGestures`
   = all edges), so a game swipe is not taken by the system on the first try. The
-  client turns off its own edge-swipe Back in fullscreen; ✕ and ⋯ stay.
+  client turns off its own edge-swipe Back in fullscreen; ⋯ and ⌄ stay.
 - Android: immersive mode with transient bars on swipe
   (`BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`). Transient bars lie over the game;
   while they are visible the capsule moves below the status bar and returns with
